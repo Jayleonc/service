@@ -3,22 +3,32 @@ package auth
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/Jayleonc/service/internal/module"
 )
 
-// Register wires the auth module using the structured/DI development path.
+var (
+	serviceMu sync.RWMutex
+	service   *Service
+)
+
+// Register wires the authentication module using the structured/DI development path.
 func Register(ctx context.Context, deps module.Dependencies) error {
-	if deps.DB == nil {
-		return fmt.Errorf("auth module requires a database instance")
+	if deps.Auth == nil {
+		return fmt.Errorf("auth module requires an auth manager")
+	}
+	if deps.Cache == nil {
+		return fmt.Errorf("auth module requires a cache client")
+	}
+	if deps.API == nil {
+		return fmt.Errorf("auth module requires an API router group")
 	}
 
-	repo := NewRepository(deps.DB)
-	if err := repo.Migrate(ctx); err != nil {
-		return fmt.Errorf("run migrations: %w", err)
-	}
+	store := NewSessionStore(deps.Cache)
+	svc := NewService(deps.Auth, store)
+	setDefaultService(svc)
 
-	svc := NewService(repo)
 	handler := NewHandler(svc)
 	handler.RegisterRoutes(deps.API)
 
@@ -27,4 +37,17 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 	}
 
 	return nil
+}
+
+// DefaultService returns the globally registered auth service instance.
+func DefaultService() *Service {
+	serviceMu.RLock()
+	defer serviceMu.RUnlock()
+	return service
+}
+
+func setDefaultService(svc *Service) {
+	serviceMu.Lock()
+	defer serviceMu.Unlock()
+	service = svc
 }

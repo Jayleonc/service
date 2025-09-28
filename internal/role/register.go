@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Jayleonc/service/internal/auth"
+	"github.com/Jayleonc/service/internal/middleware"
 	"github.com/Jayleonc/service/internal/module"
 	"github.com/Jayleonc/service/pkg/database"
 )
@@ -15,12 +17,19 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 		return fmt.Errorf("role module requires the global database to be initialised")
 	}
 
+	authService := auth.DefaultService()
+	if authService == nil {
+		return fmt.Errorf("role module requires the auth service to be initialised")
+	}
+
 	if err := db.WithContext(ctx).AutoMigrate(&assignment{}); err != nil {
 		return fmt.Errorf("run role migrations: %w", err)
 	}
 
 	handler := NewHandler()
-	handler.RegisterRoutes(deps.API)
+	group := deps.API.Group("")
+	group.Use(middleware.Authenticated(authService))
+	handler.RegisterRoutes(group)
 
 	if deps.Logger != nil {
 		deps.Logger.Info("role module initialised", "pattern", "singleton")

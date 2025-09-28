@@ -1,13 +1,15 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+
+	"github.com/Jayleonc/service/pkg/response"
 )
 
-// Handler exposes user endpoints.
+// Handler exposes the authentication refresh endpoint.
 type Handler struct {
 	svc *Service
 }
@@ -17,114 +19,41 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// RegisterRoutes registers user routes under the provided router group.
+// RegisterRoutes registers authentication routes under the provided router group.
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.GET("/users", h.list)
-	rg.POST("/users", h.create)
-	rg.GET("/users/:id", h.get)
-	rg.PUT("/users/:id", h.update)
-	rg.DELETE("/users/:id", h.delete)
+	rg.POST("/auth/refresh", h.refresh)
 }
 
-type createUserRequest struct {
-	Name         string   `json:"name"`
-	Email        string   `json:"email"`
-	Roles        []string `json:"roles"`
-	PasswordHash string   `json:"password_hash"`
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-type updateUserRequest struct {
-	Name         *string   `json:"name"`
-	Email        *string   `json:"email"`
-	Roles        *[]string `json:"roles"`
-	PasswordHash *string   `json:"password_hash"`
+type refreshResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"`
 }
 
-func (h *Handler) list(c *gin.Context) {
-	users, err := h.svc.List(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, users)
-}
-
-func (h *Handler) create(c *gin.Context) {
-	var req createUserRequest
+func (h *Handler) refresh(c *gin.Context) {
+	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, 1001, "invalid request payload")
 		return
 	}
 
-	user, err := h.svc.Create(c.Request.Context(), CreateUserInput{
-		Name:         req.Name,
-		Email:        req.Email,
-		Roles:        req.Roles,
-		PasswordHash: req.PasswordHash,
+	tokens, err := h.svc.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, ErrInvalidRefreshToken) {
+			response.Error(c, http.StatusUnauthorized, 1002, "invalid refresh token")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, 1003, "failed to refresh token")
+		return
+	}
+
+	response.Success(c, refreshResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		ExpiresIn:    int64(tokens.ExpiresIn.Seconds()),
 	})
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, user)
-}
-
-func (h *Handler) get(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	user, err := h.svc.Get(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-func (h *Handler) update(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	var req updateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, err := h.svc.Update(c.Request.Context(), id, UpdateUserInput{
-		Name:         req.Name,
-		Email:        req.Email,
-		Roles:        req.Roles,
-		PasswordHash: req.PasswordHash,
-	})
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-func (h *Handler) delete(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ type App struct {
 	Auth      AuthConfig      `mapstructure:"auth"`
 	Log       LogConfig       `mapstructure:"log"`
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
+	Redis     RedisConfig     `mapstructure:"redis"`
 }
 
 // ServerConfig controls HTTP server behaviour.
@@ -28,20 +30,23 @@ type ServerConfig struct {
 
 // DatabaseConfig represents Postgres configuration for GORM.
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	Name     string `mapstructure:"name"`
-	SSLMode  string `mapstructure:"sslmode"`
+	Driver   string            `mapstructure:"driver"`
+	Host     string            `mapstructure:"host"`
+	Port     int               `mapstructure:"port"`
+	User     string            `mapstructure:"user"`
+	Password string            `mapstructure:"password"`
+	Name     string            `mapstructure:"name"`
+	SSLMode  string            `mapstructure:"sslmode"`
+	Params   map[string]string `mapstructure:"params"`
 }
 
 // AuthConfig holds authentication configuration.
 type AuthConfig struct {
-	Issuer   string        `mapstructure:"issuer"`
-	Audience string        `mapstructure:"audience"`
-	Secret   string        `mapstructure:"secret"`
-	TTL      time.Duration `mapstructure:"ttl"`
+	Issuer     string        `mapstructure:"issuer"`
+	Audience   string        `mapstructure:"audience"`
+	Secret     string        `mapstructure:"secret"`
+	AccessTTL  time.Duration `mapstructure:"access_ttl"`
+	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
 }
 
 // LogConfig configures structured logging.
@@ -55,6 +60,14 @@ type TelemetryConfig struct {
 	ServiceName string `mapstructure:"service_name"`
 	Enabled     bool   `mapstructure:"enabled"`
 	Endpoint    string `mapstructure:"endpoint"`
+}
+
+// RedisConfig describes the cache connection options.
+type RedisConfig struct {
+	Addr     string `mapstructure:"addr"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
 }
 
 var (
@@ -71,6 +84,7 @@ func Load(_ context.Context, _ []string) (App, error) {
 	v.SetDefault("server.read_timeout", "5s")
 	v.SetDefault("server.write_timeout", "5s")
 
+	v.SetDefault("database.driver", "postgres")
 	v.SetDefault("database.host", "localhost")
 	v.SetDefault("database.port", 5432)
 	v.SetDefault("database.user", "postgres")
@@ -81,7 +95,8 @@ func Load(_ context.Context, _ []string) (App, error) {
 	v.SetDefault("auth.issuer", "toolbox")
 	v.SetDefault("auth.audience", "auth-service")
 	v.SetDefault("auth.secret", "supersecret")
-	v.SetDefault("auth.ttl", "15m")
+	v.SetDefault("auth.access_ttl", "15m")
+	v.SetDefault("auth.refresh_ttl", "720h")
 
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.pretty", false)
@@ -90,9 +105,26 @@ func Load(_ context.Context, _ []string) (App, error) {
 	v.SetDefault("telemetry.enabled", false)
 	v.SetDefault("telemetry.endpoint", "localhost:4317")
 
+	v.SetDefault("redis.addr", "localhost:6379")
+	v.SetDefault("redis.username", "")
+	v.SetDefault("redis.password", "")
+	v.SetDefault("redis.db", 0)
+
 	v.SetEnvPrefix("AUTH")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
+	v.AddConfigPath(".")
+	v.AddConfigPath("./config")
+
+	if err := v.ReadInConfig(); err != nil {
+		var configFileNotFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFound) {
+			return App{}, err
+		}
+	}
 
 	var cfg App
 	if err := v.Unmarshal(&cfg); err != nil {

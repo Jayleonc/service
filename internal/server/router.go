@@ -10,13 +10,11 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/Jayleonc/service/internal/middleware"
-	"github.com/Jayleonc/service/pkg/auth"
 )
 
 // RouterConfig defines the common HTTP middleware configuration shared by all modules.
 type RouterConfig struct {
 	Logger           *slog.Logger
-	Auth             *auth.Manager
 	Registry         *prometheus.Registry
 	TelemetryEnabled bool
 	TelemetryName    string
@@ -46,9 +44,5 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 	})
 
 	api := r.Group("/v1")
-	if cfg.Auth != nil {
-		api.Use(middleware.Authenticated(cfg.Auth))
-	}
-
 	return r, api
 }
