@@ -403,6 +403,17 @@ lint:
 	CGO_ENABLED=0 go vet ./...
 	staticcheck -checks=all ./...
 
+new-module:
+	@if [ -z "$(name)" ]; then \
+		echo "usage: make new-module name=<module> type=<simple|structured>"; \
+		exit 1; \
+	fi
+	@if [ -z "$(type)" ]; then \
+		echo "usage: make new-module name=<module> type=<simple|structured>"; \
+		exit 1; \
+	fi
+	go run ./cmd/newmodule -name=$(name) -type=$(type)
+
 vuln-check:
 	govulncheck ./...
 
@@ -613,3 +624,6 @@ help:
 	@echo "  dev-logs-loki           Show the logs for the loki service"
 	@echo "  dev-logs-promtail       Show the logs for the promtail service"
 	@echo "  dev-services-delete     Delete all"
+	@echo "  lint                    Run go vet and staticcheck"
+	@echo "  new-module              Scaffold a new module (name=<module> type=<simple|structured>)"
+	@echo "  test                    Run tests and checks"
