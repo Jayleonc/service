@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	moduleNamePattern  = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-	reservedModuleName = map[string]struct{}{
-		"module": {},
-		"server": {},
+	featureNamePattern  = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	reservedFeatureName = map[string]struct{}{
+		"feature": {},
+		"server":  {},
 	}
 )
 
@@ -37,8 +37,8 @@ func main() {
 	switch cmd {
 	case "init":
 		err = runInit(root)
-	case "new-module":
-		err = runNewModule(root)
+	case "new-feature":
+		err = runNewFeature(root)
 	case "help", "-h", "--help":
 		printUsage()
 		return
@@ -57,8 +57,8 @@ func printUsage() {
 	fmt.Println("Usage: project-cli <command>")
 	fmt.Println()
 	fmt.Println("Available commands:")
-	fmt.Println("  init         Initialise the project with a new module path")
-	fmt.Println("  new-module   Scaffold a new module interactively")
+	fmt.Println("  init          Initialise the project with a new Go module path")
+	fmt.Println("  new-feature   Scaffold a new feature interactively")
 }
 
 func runInit(root string) error {
@@ -68,7 +68,7 @@ func runInit(root string) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("Current module path: %s\n", modulePath)
+	fmt.Printf("Current Go module path: %s\n", modulePath)
 
 	newPath, err := promptForModulePath(reader, modulePath)
 	if err != nil {
@@ -76,7 +76,7 @@ func runInit(root string) error {
 	}
 
 	if newPath == modulePath {
-		fmt.Println("Module path unchanged; nothing to do.")
+		fmt.Println("Go module path unchanged; nothing to do.")
 		return nil
 	}
 
@@ -93,7 +93,7 @@ func runInit(root string) error {
 
 func promptForModulePath(reader *bufio.Reader, current string) (string, error) {
 	for {
-		fmt.Print("Enter the new module path: ")
+		fmt.Print("Enter the new Go module path: ")
 		input, err := readLine(reader)
 		if err != nil {
 			return "", err
@@ -112,50 +112,50 @@ func promptForModulePath(reader *bufio.Reader, current string) (string, error) {
 	}
 }
 
-func runNewModule(root string) error {
+func runNewFeature(root string) error {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("=== New Module Generator ===")
+	fmt.Println("=== New Feature Generator ===")
 
-	name, err := promptForModuleName(reader)
+	name, err := promptForFeatureName(reader)
 	if err != nil {
 		return err
 	}
 
-	moduleType, err := promptForModuleType(reader)
+	featureType, err := promptForFeatureType(reader)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Creating %s module %q...\n", moduleType, name)
-	if err := createModule(root, name, moduleType); err != nil {
+	fmt.Printf("Creating %s feature %q...\n", featureType, name)
+	if err := createFeature(root, name, featureType); err != nil {
 		return err
 	}
 
-	fmt.Printf("Module %q created successfully.\n", name)
+	fmt.Printf("Feature %q created successfully.\n", name)
 	return nil
 }
 
-func promptForModuleName(reader *bufio.Reader) (string, error) {
+func promptForFeatureName(reader *bufio.Reader) (string, error) {
 	for {
-		fmt.Print("Enter the new module name (e.g. \"billing\", \"user_profile\"): ")
+		fmt.Print("Enter the new feature name (e.g. \"billing\", \"user_profile\"): ")
 		input, err := readLine(reader)
 		if err != nil {
 			return "", err
 		}
 
 		if input == "" {
-			fmt.Println("Module name is required.")
+			fmt.Println("Feature name is required.")
 			continue
 		}
 
 		name := strings.ToLower(input)
-		if !moduleNamePattern.MatchString(name) {
-			fmt.Println("Invalid module name: only lowercase letters, digits, and underscores are allowed, and it must start with a letter.")
+		if !featureNamePattern.MatchString(name) {
+			fmt.Println("Invalid feature name: only lowercase letters, digits, and underscores are allowed, and it must start with a letter.")
 			continue
 		}
 
-		if _, exists := reservedModuleName[name]; exists {
-			fmt.Printf("Module name %q is reserved. Please choose another name.\n", name)
+		if _, exists := reservedFeatureName[name]; exists {
+			fmt.Printf("Feature name %q is reserved. Please choose another name.\n", name)
 			continue
 		}
 
@@ -163,9 +163,9 @@ func promptForModuleName(reader *bufio.Reader) (string, error) {
 	}
 }
 
-func promptForModuleType(reader *bufio.Reader) (string, error) {
+func promptForFeatureType(reader *bufio.Reader) (string, error) {
 	for {
-		fmt.Print("Select module type ([1] Simple, [2] Structured): ")
+		fmt.Print("Select feature type ([1] Simple, [2] Structured): ")
 		input, err := readLine(reader)
 		if err != nil {
 			return "", err
@@ -203,40 +203,40 @@ func exitWithError(err error) {
 	os.Exit(1)
 }
 
-func createModule(root, name, moduleType string) error {
-	moduleDir := filepath.Join(root, "internal", name)
-	if _, err := os.Stat(moduleDir); err == nil {
-		return fmt.Errorf("module directory %s already exists", moduleDir)
+func createFeature(root, name, featureType string) error {
+	featureDir := filepath.Join(root, "internal", name)
+	if _, err := os.Stat(featureDir); err == nil {
+		return fmt.Errorf("feature directory %s already exists", featureDir)
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("check module directory: %w", err)
+		return fmt.Errorf("check feature directory: %w", err)
 	}
 
-	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
-		return fmt.Errorf("create module directory: %w", err)
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
+		return fmt.Errorf("create feature directory: %w", err)
 	}
 
-	data := templateData{
+	data := featureTemplateData{
 		Package:     name,
 		Name:        name,
 		Route:       "/" + name,
 		DisplayName: displayName(name),
-		LogMessage:  fmt.Sprintf("%s module initialised", displayName(name)),
+		LogMessage:  fmt.Sprintf("%s feature initialised", displayName(name)),
 	}
 
 	files := map[string][]byte{}
 	var err error
-	switch moduleType {
+	switch featureType {
 	case "simple":
-		files, err = renderSimpleModule(data)
+		files, err = renderSimpleFeature(data)
 	case "structured":
-		files, err = renderStructuredModule(data)
+		files, err = renderStructuredFeature(data)
 	}
 	if err != nil {
 		return err
 	}
 
 	for filename, content := range files {
-		path := filepath.Join(moduleDir, filename)
+		path := filepath.Join(featureDir, filename)
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
@@ -247,14 +247,14 @@ func createModule(root, name, moduleType string) error {
 		return fmt.Errorf("determine module path: %w", err)
 	}
 
-	if err := updateModulesFile(root, modulePath, name); err != nil {
-		return fmt.Errorf("update module registry: %w", err)
+	if err := updateFeaturesFile(root, modulePath, name); err != nil {
+		return fmt.Errorf("update feature registry: %w", err)
 	}
 
 	return nil
 }
 
-type templateData struct {
+type featureTemplateData struct {
 	Package     string
 	Name        string
 	Route       string
@@ -262,7 +262,7 @@ type templateData struct {
 	LogMessage  string
 }
 
-func renderSimpleModule(data templateData) (map[string][]byte, error) {
+func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
 	handler, err := renderGoTemplate(simpleHandlerTemplate, data)
 	if err != nil {
 		return nil, err
@@ -279,7 +279,7 @@ func renderSimpleModule(data templateData) (map[string][]byte, error) {
 	}, nil
 }
 
-func renderStructuredModule(data templateData) (map[string][]byte, error) {
+func renderStructuredFeature(data featureTemplateData) (map[string][]byte, error) {
 	repository, err := renderGoTemplate(structuredRepositoryTemplate, data)
 	if err != nil {
 		return nil, err
@@ -308,8 +308,8 @@ func renderStructuredModule(data templateData) (map[string][]byte, error) {
 	}, nil
 }
 
-func renderGoTemplate(tmpl string, data templateData) ([]byte, error) {
-	t, err := template.New("module").Parse(tmpl)
+func renderGoTemplate(tmpl string, data featureTemplateData) ([]byte, error) {
+	t, err := template.New("feature").Parse(tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("parse template: %w", err)
 	}
@@ -414,16 +414,16 @@ func goModulePath(root string) (string, error) {
 	return "", errors.New("module path not found in go.mod")
 }
 
-func updateModulesFile(root, modulePath, moduleName string) error {
-	modulesPath := filepath.Join(root, "internal", "app", "bootstrap.go")
-	content, err := os.ReadFile(modulesPath)
+func updateFeaturesFile(root, modulePath, featureName string) error {
+	featuresPath := filepath.Join(root, "internal", "app", "bootstrap.go")
+	content, err := os.ReadFile(featuresPath)
 	if err != nil {
 		return err
 	}
 
-	importPath := fmt.Sprintf("%s/internal/%s", modulePath, moduleName)
+	importPath := fmt.Sprintf("%s/internal/%s", modulePath, featureName)
 	if strings.Contains(string(content), importPath) {
-		return fmt.Errorf("module %q is already registered", moduleName)
+		return fmt.Errorf("feature %q is already registered", featureName)
 	}
 
 	updated, err := insertImport(string(content), "", importPath)
@@ -431,7 +431,7 @@ func updateModulesFile(root, modulePath, moduleName string) error {
 		return err
 	}
 
-	updated, err = insertModuleEntry(updated, moduleName, moduleName)
+	updated, err = insertFeatureEntry(updated, featureName, featureName)
 	if err != nil {
 		return err
 	}
@@ -441,7 +441,7 @@ func updateModulesFile(root, modulePath, moduleName string) error {
 		return fmt.Errorf("format bootstrap.go: %w", err)
 	}
 
-	if err := os.WriteFile(modulesPath, formatted, 0o644); err != nil {
+	if err := os.WriteFile(featuresPath, formatted, 0o644); err != nil {
 		return fmt.Errorf("write bootstrap.go: %w", err)
 	}
 
@@ -474,12 +474,12 @@ func insertImport(content, alias, path string) (string, error) {
 	return content[:insertPos] + line + content[insertPos:], nil
 }
 
-func insertModuleEntry(content, moduleName, reference string) (string, error) {
-	const marker = "var Modules = []module.Entry{"
+func insertFeatureEntry(content, featureName, reference string) (string, error) {
+	const marker = "var Features = []feature.Entry{"
 
 	idx := strings.Index(content, marker)
 	if idx == -1 {
-		return "", errors.New("Modules slice not found in bootstrap.go")
+		return "", errors.New("Features slice not found in bootstrap.go")
 	}
 
 	openIdx := idx + len(marker) - 1
@@ -488,7 +488,7 @@ func insertModuleEntry(content, moduleName, reference string) (string, error) {
 		return "", err
 	}
 
-	entry := fmt.Sprintf("\t{Name: \"%s\", Registrar: %s.Register},\n", moduleName, reference)
+	entry := fmt.Sprintf("\t{Name: \"%s\", Registrar: %s.Register},\n", featureName, reference)
 	return content[:closingIdx] + entry + content[closingIdx:], nil
 }
 
@@ -545,7 +545,7 @@ import (
 
         "github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/internal/server"
+        "github.com/Jayleonc/service/internal/feature"
         "github.com/Jayleonc/service/pkg/response"
 )
 
@@ -555,12 +555,12 @@ func NewHandler() *Handler {
         return &Handler{}
 }
 
-func (h *Handler) GetRoutes() server.ModuleRoutes {
-        return server.ModuleRoutes{
-                PublicRoutes: []server.RouteDefinition{
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+        return feature.ModuleRoutes{
+                PublicRoutes: []feature.RouteDefinition{
                         {Path: "{{.Route}}/ping", Handler: h.ping},
                 },
-                AuthenticatedRoutes: []server.RouteDefinition{
+                AuthenticatedRoutes: []feature.RouteDefinition{
                         {Path: "{{.Route}}/echo", Handler: h.echo},
                 },
         }
@@ -590,22 +590,20 @@ import (
         "fmt"
 
         "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/module"
-        "github.com/Jayleonc/service/internal/server"
+        "github.com/Jayleonc/service/internal/feature"
 )
 
-func Register(ctx context.Context, deps module.Dependencies) error {
-        if deps.API == nil {
-                return fmt.Errorf("{{.Name}} module requires the API router group")
+func Register(ctx context.Context, deps feature.Dependencies) error {
+        if deps.Router == nil {
+                return fmt.Errorf("{{.Name}} feature requires a route registrar")
         }
 
-        authService := auth.DefaultService()
-        if authService == nil {
-                return fmt.Errorf("{{.Name}} module requires the auth service to be initialised")
+        if auth.DefaultService() == nil {
+                return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
         }
 
         handler := NewHandler()
-        server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
+        deps.Router.RegisterModule("", handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "singleton")
@@ -661,7 +659,7 @@ import (
 
         "github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/internal/server"
+        "github.com/Jayleonc/service/internal/feature"
         "github.com/Jayleonc/service/pkg/response"
 )
 
@@ -673,12 +671,12 @@ func NewHandler(service *Service) *Handler {
         return &Handler{service: service}
 }
 
-func (h *Handler) GetRoutes() server.ModuleRoutes {
-        return server.ModuleRoutes{
-                PublicRoutes: []server.RouteDefinition{
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+        return feature.ModuleRoutes{
+                PublicRoutes: []feature.RouteDefinition{
                         {Path: "{{.Route}}/ping", Handler: h.ping},
                 },
-                AuthenticatedRoutes: []server.RouteDefinition{
+                AuthenticatedRoutes: []feature.RouteDefinition{
                         {Path: "{{.Route}}/process", Handler: h.process},
                 },
         }
@@ -718,27 +716,25 @@ import (
         "fmt"
 
         "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/module"
-        "github.com/Jayleonc/service/internal/server"
+        "github.com/Jayleonc/service/internal/feature"
 )
 
-func Register(ctx context.Context, deps module.Dependencies) error {
+func Register(ctx context.Context, deps feature.Dependencies) error {
         if deps.DB == nil {
-                return fmt.Errorf("{{.Name}} module requires a database instance")
+                return fmt.Errorf("{{.Name}} feature requires a database instance")
         }
-        if deps.API == nil {
-                return fmt.Errorf("{{.Name}} module requires the API router group")
+        if deps.Router == nil {
+                return fmt.Errorf("{{.Name}} feature requires a route registrar")
         }
 
-        authService := auth.DefaultService()
-        if authService == nil {
-                return fmt.Errorf("{{.Name}} module requires the auth service to be initialised")
+        if auth.DefaultService() == nil {
+                return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
         }
 
         repo := NewRepository(deps.DB)
         svc := NewService(repo)
         handler := NewHandler(svc)
-        server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
+        deps.Router.RegisterModule("", handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured")

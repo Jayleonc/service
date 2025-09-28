@@ -1,14 +1,14 @@
-# Modular Go Application Scaffold
+# Feature-Oriented Go Application Scaffold
 
-This repository captures the final iteration of our "modular self-registration" and "dual development paradigm" blueprint. It is a runnable Go service whose structure demonstrates how to combine an opinionated application core with modules that register themselves without touching the bootstrap logic. The template is intentionally compact so that teams can move fast while keeping a clear path for long-term maintenance.
+This repository captures the final iteration of our "feature self-registration" and "dual development paradigm" blueprint. It is a runnable Go service whose structure demonstrates how to combine an opinionated application core with features that register themselves without touching the bootstrap logic. The template is intentionally compact so that teams can move fast while keeping a clear path for long-term maintenance.
 
 ## Architecture Overview
 
 ```
 cmd/service/            # Entry point – creates the application context
-internal/server/        # Application core, bootstrap logic and module manifest
-internal/auth/          # Structured/DI example module (user management)
-internal/role/          # Simple/Singleton example module (role assignments)
+internal/server/        # Application core, bootstrap logic and feature manifest
+internal/auth/          # Structured/DI example feature (user management)
+internal/role/          # Simple/Singleton example feature (role assignments)
 internal/middleware/    # Shared Gin middleware
 pkg/                    # Reusable infrastructure (config, DB, auth, telemetry, ...)
 ```
@@ -16,27 +16,27 @@ pkg/                    # Reusable infrastructure (config, DB, auth, telemetry, 
 The execution flow is as follows:
 
 1. `cmd/service/main.go` creates a cancellable context, invokes the bootstrapper, and manages graceful shutdown.
-2. `internal/server/bootstrap.go` assembles shared infrastructure (config, logger, database, telemetry, HTTP router) and iterates the module manifest.
-3. Each entry in `internal/server/modules.go` exposes a `Register` function that receives shared dependencies and mounts routes on the shared router.
+2. `internal/server/bootstrap.go` assembles shared infrastructure (config, logger, database, telemetry, HTTP router) and iterates the feature manifest.
+3. Each entry in the manifest exposes a `Register` function that receives shared dependencies and mounts routes on the shared router.
 4. `internal/server/app.go` encapsulates the HTTP server lifecycle (`Start`, `Shutdown`) so the entry point stays declarative.
 
-## Module Manifest
+## Feature Manifest
 
-`internal/server/modules.go` is the single source of truth for enabled modules. Adding a module means:
+`internal/app/bootstrap.go` is the single source of truth for enabled features. Adding a feature means:
 
-1. Creating a package under `internal/` with a `Register(context.Context, server.ModuleDeps) error` function.
-2. Appending the register function to the `Modules` slice alongside a descriptive name.
+1. Creating a package under `internal/` with a `Register(context.Context, feature.Dependencies) error` function.
+2. Appending the register function to the `Features` slice alongside a descriptive name.
 3. (Optional) Exporting additional setup logs to guide future readers.
 
 Because the bootstrapper simply loops over this list, the main function remains untouched as the application grows.
 
 ## Dual Development Paradigms
 
-Two modules demonstrate how to balance speed and structure inside the same application.
+Two features demonstrate how to balance speed and structure inside the same application.
 
 ### Structured / Dependency-Injection Path – `internal/auth`
 
-The authentication module models the "enterprise" path. `register.go` wires a repository, service, and HTTP handler. The repository owns migrations and data access logic, the service layer centralises validation, and the handler exposes REST endpoints. This style favours explicit dependencies and is ideal for complex, high-change domains.
+The authentication feature models the "enterprise" path. `register.go` wires a repository, service, and HTTP handler. The repository owns migrations and data access logic, the service layer centralises validation, and the handler exposes REST endpoints. This style favours explicit dependencies and is ideal for complex, high-change domains.
 
 Key files:
 
@@ -47,28 +47,28 @@ Key files:
 
 ### Simple / Singleton Path – `internal/role`
 
-The role module embraces the "move fast" path. `register.go` fetches the globally initialised database (set up by the bootstrapper), runs a lightweight migration, and mounts a single handler. The handler itself directly touches GORM to insert rows for `POST /v1/roles`. No repository or service layer is introduced—the logic stays inside the handler for maximum velocity when requirements are small and well understood.
+The role feature embraces the "move fast" path. `register.go` fetches the globally initialised database (set up by the bootstrapper), runs a lightweight migration, and mounts a single handler. The handler itself directly touches GORM to insert rows for `POST /v1/roles`. No repository or service layer is introduced—the logic stays inside the handler for maximum velocity when requirements are small and well understood.
 
 Key files:
 
 - `internal/role/handler.go` – inline model definitions plus the request handler using `database.Default()`.
 - `internal/role/register.go` – minimal bootstrap, perfect for quick CRUD style features.
 
-Both modules share the same router instance and live side-by-side without leaking concerns into the bootstrapper.
+Both features share the same router instance and live side-by-side without leaking concerns into the bootstrapper.
 
 ## Quick Start
 
 1. Clone this repository and change into the project directory.
-2. Rebrand the module path for your organisation by running the interactive initialiser:
+2. Rebrand the Go module path for your organisation by running the interactive initialiser:
 
    ```bash
    make init-project
    ```
 
-3. Scaffold your first feature module with the guided generator:
+3. Scaffold your first feature with the guided generator:
 
    ```bash
-   make new-module
+   make new-feature
    ```
 
 4. Run the service:
@@ -81,11 +81,11 @@ The server starts on `0.0.0.0:3000` by default. A health probe is available at `
 
 ## Extending the Template
 
-1. **Create a module** – add a folder under `internal/` and implement a `Register` function.
-2. **Add it to the manifest** – append an entry to `internal/server/modules.go`.
+1. **Create a feature** – add a folder under `internal/` and implement a `Register` function.
+2. **Add it to the manifest** – append an entry to `internal/app/bootstrap.go`.
 3. **Use the paradigm that fits** – wire explicit constructors (like `internal/auth`) or lean on global singletons (like `internal/role`). You can mix approaches within the same application depending on the feature.
 
-With this workflow, a new module can be added by touching only two locations: its own directory and the manifest.
+With this workflow, a new feature can be added by touching only two locations: its own directory and the manifest.
 
 ## Observability and Infrastructure
 

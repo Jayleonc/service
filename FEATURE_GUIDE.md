@@ -1,17 +1,17 @@
-# Module Development Guide
+# Feature Development Guide
 
 This service template embraces two complementary development paradigms so that teams can choose the right balance between delivery speed and long-term maintainability. Both styles plug into a shared application bootstrap layer implemented in [`internal/server`](internal/server), which assembles infrastructure in `bootstrap.go`, exposes lifecycle management in `app.go`, and routes requests through `router.go` before dispatching them via the feature contracts declared in [`internal/feature`](internal/feature).
 
 ## Why two paradigms?
 
-- **Structured / Dependency Injection (DI)** keeps dependencies explicit and testable. It is ideal for complex, business-critical features where lifecycle control, migrations, and robust testing matter most. The `auth` module is the canonical example.
-- **Simple / Singleton-first** favours rapid iteration by leaning on globally initialised infrastructure such as `database.Default()` or `logger.Default()`. It is perfect for thin CRUD endpoints, admin utilities, or experiments where speed outweighs ceremony. The `role` module showcases this approach.
+- **Structured / Dependency Injection (DI)** keeps dependencies explicit and testable. It is ideal for complex, business-critical features where lifecycle control, migrations, and robust testing matter most. The `auth` feature is the canonical example.
+- **Simple / Singleton-first** favours rapid iteration by leaning on globally initialised infrastructure such as `database.Default()` or `logger.Default()`. It is perfect for thin CRUD endpoints, admin utilities, or experiments where speed outweighs ceremony. The `role` feature showcases this approach.
 
 Supporting both patterns lets new contributors start fast while giving senior engineers a clear path for extracting durable, well-factored domains when requirements grow.
 
 ## Choosing the right paradigm
 
-Run through this quick checklist whenever you create a module:
+Run through this quick checklist whenever you create a feature:
 
 - [ ] Does the feature touch core business workflows or sensitive data paths?
 - [ ] Will the module require migrations, background jobs, or integration tests?
@@ -19,9 +19,9 @@ Run through this quick checklist whenever you create a module:
 - [ ] Is long-term ownership shared across teams or does it demand strict boundaries?
 - [ ] Do you need fine-grained observability (custom metrics, tracing spans, structured logs)?
 
-If you answered “yes” to most questions, start with the **structured/DI** template. A majority of “no” answers means the **simple/singleton** template is usually sufficient—refactor to the structured pattern later if the module evolves.
+If you answered “yes” to most questions, start with the **structured/DI** template. A majority of “no” answers means the **simple/singleton** template is usually sufficient—refactor to the structured pattern later if the feature evolves.
 
-## Structured pattern (auth module)
+## Structured pattern (auth feature)
 
 The `auth` module highlights explicit wiring from repository to handler, making dependencies easy to follow and mock.
 
@@ -29,10 +29,10 @@ The `auth` module highlights explicit wiring from repository to handler, making 
 // internal/auth/register.go
 func Register(ctx context.Context, deps feature.Dependencies) error {
         if deps.DB == nil {
-                return fmt.Errorf("auth module requires a database instance")
+                return fmt.Errorf("auth feature requires a database instance")
         }
         if deps.Router == nil {
-                return fmt.Errorf("auth module requires the route registrar")
+                return fmt.Errorf("auth feature requires the route registrar")
         }
 
         repo := NewRepository(deps.DB)
@@ -45,18 +45,18 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
         deps.Router.RegisterModule("/auth", handler.GetRoutes())
 
         if deps.Logger != nil {
-                deps.Logger.Info("auth module initialised", "pattern", "structured")
+                deps.Logger.Info("auth feature initialised", "pattern", "structured")
         }
 
         return nil
 }
 ```
 
-Dependencies flow in a single direction: `NewRepository` → `NewService` → `NewHandler`. Each layer is easy to test in isolation and only receives what it needs. The module depends on the shared router registrar exposed by the bootstrap layer, but everything else stays local.
+Dependencies flow in a single direction: `NewRepository` → `NewService` → `NewHandler`. Each layer is easy to test in isolation and only receives what it needs. The feature depends on the shared router registrar exposed by the bootstrap layer, but everything else stays local.
 
-## Simple pattern (role module)
+## Simple pattern (role feature)
 
-The `role` module keeps the surface area tiny by calling global singletons directly from the handler.
+The `role` feature keeps the surface area tiny by calling global singletons directly from the handler.
 
 ```go
 // internal/role/handler.go
@@ -96,18 +96,18 @@ func (h *Handler) create(c *gin.Context) {
 
 There is no explicit wiring layer: the handler reaches for `database.Default()` when it needs persistence and returns early if the service is not ready. This keeps code generation small and accelerates prototyping.
 
-## Scaffolding new modules
+## Scaffolding new features
 
-Use the `make new-module` automation to eliminate repetitive setup. The command launches an interactive wizard, so no flags are required:
+Use the `make new-feature` automation to eliminate repetitive setup. The command launches an interactive wizard, so no flags are required:
 
 ```bash
-make new-module
+make new-feature
 ```
 
 The generator will:
 
 1. Create `internal/<name>/` with either the DI (repository/service/handler/register) or singleton (handler/register) template.
-2. Wire the module into [`internal/app/bootstrap.go`](internal/app/bootstrap.go) so it is registered automatically during bootstrap.
-3. Leave the bootstrap, router, and middleware untouched—new modules plug directly into the existing lifecycle via `feature.Dependencies`.
+2. Wire the feature into [`internal/app/bootstrap.go`](internal/app/bootstrap.go) so it is registered automatically during bootstrap.
+3. Leave the bootstrap, router, and middleware untouched—new features plug directly into the existing lifecycle via `feature.Dependencies`.
 
 After scaffolding, fill in repository methods, flesh out services, and replace placeholder routes with real logic. The rest of the application (configuration, database, logger, metrics, telemetry) is already available through `feature.Dependencies` or singleton helpers.

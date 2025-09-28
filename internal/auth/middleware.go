@@ -1,4 +1,4 @@
-package middleware
+package auth
 
 import (
 	"net/http"
@@ -6,12 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Jayleonc/service/internal/auth"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/response"
 )
 
-// Authenticated ensures the request has a valid JWT token.
-func Authenticated(service *auth.Service) gin.HandlerFunc {
+// AuthenticatedMiddleware ensures the request has a valid JWT token and stores the session in context.
+func AuthenticatedMiddleware(service *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" {
@@ -34,7 +34,7 @@ func Authenticated(service *auth.Service) gin.HandlerFunc {
 			return
 		}
 
-		auth.SetContextSession(c, session)
+		feature.SetContextSession(c, session)
 		c.Next()
 	}
 }

@@ -19,7 +19,7 @@ type RouteRegistrar interface {
 	RegisterModule(pathPrefix string, routes ModuleRoutes)
 }
 
-// Dependencies captures the shared infrastructure that modules can leverage during registration.
+// Dependencies captures the shared infrastructure that features can leverage during registration.
 type Dependencies struct {
 	Logger    *slog.Logger
 	DB        *gorm.DB
@@ -30,9 +30,10 @@ type Dependencies struct {
 	Config    config.App
 	Cache     *redis.Client
 	Validator *validator.Validate
+	Guards    *RouteGuards
 }
 
-// Registrar declares the signature that modules must implement to self-register.
+// Registrar declares the signature that features must implement to self-register.
 type Registrar func(context.Context, Dependencies) error
 
 // Entry associates a human-friendly name with a registrar implementation.

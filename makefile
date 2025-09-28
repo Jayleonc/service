@@ -406,8 +406,8 @@ lint:
 init-project:
 	@go run ./cmd/project-cli init
 
-new-module:
-	@go run ./cmd/project-cli new-module
+new-feature:
+        @go run ./cmd/project-cli new-feature
 
 vuln-check:
 	govulncheck ./...
@@ -620,5 +620,5 @@ help:
 	@echo "  dev-logs-promtail       Show the logs for the promtail service"
 	@echo "  dev-services-delete     Delete all"
 	@echo "  lint                    Run go vet and staticcheck"
-	@echo "  new-module              Scaffold a new module (name=<module> type=<simple|structured>)"
+        @echo "  new-feature             Scaffold a new feature (name=<feature> type=<simple|structured>)"
 	@echo "  test                    Run tests and checks"

@@ -12,36 +12,29 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	"github.com/Jayleonc/service/internal/auth"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/internal/middleware"
-	"github.com/Jayleonc/service/pkg/constant"
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
-// RouteDefinition 定义了最基础的路由信息
-type RouteDefinition struct {
-	Path    string
-	Handler gin.HandlerFunc
-}
-
-// ModuleRoutes 是一个模块对外暴露的、按权限划分的路由清单
-type ModuleRoutes struct {
-	PublicRoutes        []RouteDefinition
-	AuthenticatedRoutes []RouteDefinition
-	AdminRoutes         []RouteDefinition
-}
-
-// RouterConfig defines the common HTTP middleware configuration shared by all modules.
+// RouterConfig defines the common HTTP middleware configuration shared by all features.
 type RouterConfig struct {
 	Logger           *slog.Logger
 	Registry         *prometheus.Registry
 	TelemetryEnabled bool
 	TelemetryName    string
+	Guards           *feature.RouteGuards
 }
 
-// NewRouter constructs the base Gin engine and returns both the engine and the
-// authenticated "/v1" API group used by modules.
-func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
+// Router encapsulates the Gin engine and exposes feature-oriented registration helpers.
+type Router struct {
+	engine *gin.Engine
+	api    *gin.RouterGroup
+	guards *feature.RouteGuards
+}
+
+// NewRouter constructs the base Gin engine and returns a feature-aware router.
+func NewRouter(cfg RouterConfig) *Router {
 	gin.SetMode(gin.DebugMode)
 
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
@@ -68,22 +61,35 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	api := r.Group("/v1")
-	return r, api
+	return &Router{
+		engine: r,
+		api:    r.Group("/v1"),
+		guards: cfg.Guards,
+	}
 }
 
-// RegisterModuleRoutes 将模块路由注册到统一路由中
-func RegisterModuleRoutes(api *gin.RouterGroup, authService *auth.Service, routes ModuleRoutes) {
-	if api == nil {
+// Engine exposes the underlying Gin engine for server start-up.
+func (r *Router) Engine() *gin.Engine {
+	return r.engine
+}
+
+// RegisterModule mounts the provided feature routes under the shared "/v1" API group.
+func (r *Router) RegisterModule(pathPrefix string, routes feature.ModuleRoutes) {
+	if r == nil || r.api == nil {
 		return
 	}
 
-	register := func(defs []RouteDefinition, middlewares ...gin.HandlerFunc) {
+	guards := feature.RouteGuards{}
+	if r.guards != nil {
+		guards = *r.guards
+	}
+
+	register := func(defs []feature.RouteDefinition, middlewares []gin.HandlerFunc) {
 		if len(defs) == 0 {
 			return
 		}
 
-		group := api.Group("")
+		group := r.api.Group("")
 		if len(middlewares) > 0 {
 			group.Use(middlewares...)
 		}
@@ -93,26 +99,51 @@ func RegisterModuleRoutes(api *gin.RouterGroup, authService *auth.Service, route
 				continue
 			}
 
-			path := strings.TrimSpace(def.Path)
+			path := sanitizePath(pathPrefix, def.Path)
 			if path == "" {
 				continue
-			}
-
-			if !strings.HasPrefix(path, "/") {
-				path = "/" + path
 			}
 
 			group.POST(path, def.Handler)
 		}
 	}
 
-	register(routes.PublicRoutes)
+	register(routes.PublicRoutes, guards.Public)
+	register(routes.AuthenticatedRoutes, guards.Authenticated)
+	register(routes.AdminRoutes, guards.Admin)
+}
 
-	if authService != nil {
-		register(routes.AuthenticatedRoutes, middleware.Authenticated(authService))
-		register(routes.AdminRoutes, middleware.Authenticated(authService), middleware.RBAC(constant.RoleAdmin))
-	} else {
-		register(routes.AuthenticatedRoutes)
-		register(routes.AdminRoutes)
+func sanitizePath(prefix, path string) string {
+	p := strings.TrimSpace(path)
+	if p == "" {
+		return ""
 	}
+
+	if strings.HasPrefix(p, "/") {
+		return collapsePath(p)
+	}
+
+	pre := strings.TrimSpace(prefix)
+	if pre == "" {
+		return "/" + collapsePath(p)
+	}
+
+	if !strings.HasPrefix(pre, "/") {
+		pre = "/" + pre
+	}
+
+	return collapsePath(strings.TrimRight(pre, "/") + "/" + strings.TrimLeft(p, "/"))
+}
+
+func collapsePath(path string) string {
+	if path == "" {
+		return ""
+	}
+
+	cleaned := "/" + strings.TrimPrefix(strings.ReplaceAll(path, "//", "/"), "/")
+	if cleaned == "" {
+		return ""
+	}
+
+	return cleaned
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/auth"
 	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
@@ -16,9 +16,9 @@ import (
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
-// Bootstrap assembles the shared infrastructure, registers every module and returns
+// Bootstrap assembles the shared infrastructure, registers every feature and returns
 // a ready-to-run application instance.
-func Bootstrap(modules []module.Entry) (*App, error) {
+func Bootstrap(features []feature.Entry) (*App, error) {
 	ctx := context.Background()
 
 	// ======= 初始化配置 =======
@@ -80,31 +80,34 @@ func Bootstrap(modules []module.Entry) (*App, error) {
 	}
 
 	// ======= 路由注册 =======
-	router, api := NewRouter(RouterConfig{
+	guards := &feature.RouteGuards{}
+	router := NewRouter(RouterConfig{
 		Logger:           log,
 		Registry:         registry,
 		TelemetryEnabled: cfg.Telemetry.Enabled,
 		TelemetryName:    cfg.Telemetry.ServiceName,
+		Guards:           guards,
 	})
 
-	deps := module.Dependencies{
+	deps := feature.Dependencies{
 		Logger:    log,
 		DB:        db,
 		Router:    router,
-		API:       api,
 		Auth:      authManager,
 		Registry:  registry,
 		Config:    cfg,
 		Cache:     cacheClient,
 		Validator: validation.Default(),
+		Engine:    router.Engine(),
+		Guards:    guards,
 	}
 
-	for _, entry := range modules {
+	for _, entry := range features {
 		if err := entry.Registrar(ctx, deps); err != nil {
-			return nil, fmt.Errorf("register module %s: %w", entry.Name, err)
+			return nil, fmt.Errorf("register feature %s: %w", entry.Name, err)
 		}
-		log.Info("module registered", "module", entry.Name)
+		log.Info("feature registered", "feature", entry.Name)
 	}
 
-	return NewApp(router, cfg, log), nil
+	return NewApp(router.Engine(), cfg, log), nil
 }
