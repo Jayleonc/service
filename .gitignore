@@ -48,3 +48,4 @@ _testmain.go
 .vscode/tasks.json
 zarf/compose/database-data/data
 api/frontends/admin/node_modules
+frontend/node_modules

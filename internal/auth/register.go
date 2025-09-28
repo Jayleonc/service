@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/server"
 )
 
 var (
@@ -30,7 +31,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 	setDefaultService(svc)
 
 	handler := NewHandler(svc)
-	handler.RegisterRoutes(deps.API)
+	server.RegisterModuleRoutes(deps.API, nil, handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("auth module initialised", "pattern", "structured")

@@ -3,83 +3,114 @@ package role
 import (
 	"context"
 	"errors"
-	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-
-	"github.com/Jayleonc/service/pkg/database"
 )
 
-// ErrUnavailable indicates that the role subsystem is not ready for use.
-var ErrUnavailable = errors.New("role: service unavailable")
-
-// Assign replaces the roles assigned to a user with the provided collection.
-func Assign(ctx context.Context, userID uuid.UUID, roles []string) error {
-	db := database.Default()
-	if db == nil {
-		return ErrUnavailable
-	}
-
-	cleaned := normalizeRoles(roles)
-
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).Delete(&Role{}).Error; err != nil {
-			return err
-		}
-		if len(cleaned) == 0 {
-			return nil
-		}
-
-		records := make([]Role, 0, len(cleaned))
-		for _, roleName := range cleaned {
-			records = append(records, Role{ID: uuid.New(), UserID: userID, Role: roleName})
-		}
-
-		return tx.Create(&records).Error
-	})
+// Service 负责角色相关业务逻辑
+type Service struct {
+	repo      *Repository
+	validator *validator.Validate
 }
 
-// List retrieves the roles associated with the provided user identifier.
-func List(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	db := database.Default()
-	if db == nil {
-		return nil, ErrUnavailable
-	}
+// NewService 创建角色服务
+func NewService(repo *Repository, validator *validator.Validate) *Service {
+	return &Service{repo: repo, validator: validator}
+}
 
-	var records []Role
-	if err := db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Order("date_created ASC").
-		Find(&records).Error; err != nil {
+// CreateRoleRequest 创建角色请求体
+type CreateRoleRequest struct {
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description" validate:"omitempty"`
+}
+
+// UpdateRoleRequest 更新角色请求体
+type UpdateRoleRequest struct {
+	ID          uuid.UUID `json:"id" validate:"required"`
+	Name        *string   `json:"name" validate:"omitempty"`
+	Description *string   `json:"description" validate:"omitempty"`
+}
+
+// DeleteRoleRequest 删除角色请求体
+type DeleteRoleRequest struct {
+	ID uuid.UUID `json:"id" validate:"required"`
+}
+
+// Create 创建角色
+func (s *Service) Create(ctx context.Context, req CreateRoleRequest) (*Role, error) {
+	if err := s.validator.Struct(req); err != nil {
 		return nil, err
 	}
 
-	roles := make([]string, 0, len(records))
-	for _, record := range records {
-		roles = append(roles, record.Role)
+	role := &Role{ID: uuid.New(), Name: req.Name, Description: req.Description}
+	if err := s.repo.Create(ctx, role); err != nil {
+		return nil, err
 	}
-	return roles, nil
+	return role, nil
 }
 
-func normalizeRoles(roles []string) []string {
-	if len(roles) == 0 {
-		return nil
+// Update 更新角色
+func (s *Service) Update(ctx context.Context, req UpdateRoleRequest) (*Role, error) {
+	if err := s.validator.Struct(req); err != nil {
+		return nil, err
 	}
 
-	seen := make(map[string]struct{}, len(roles))
-	cleaned := make([]string, 0, len(roles))
-	for _, roleName := range roles {
-		trimmed := strings.ToUpper(strings.TrimSpace(roleName))
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		cleaned = append(cleaned, trimmed)
+	role, err := s.repo.Get(ctx, req.ID)
+	if err != nil {
+		return nil, err
 	}
 
-	return cleaned
+	if req.Name != nil {
+		role.Name = *req.Name
+	}
+	if req.Description != nil {
+		role.Description = *req.Description
+	}
+
+	if err := s.repo.Update(ctx, role); err != nil {
+		return nil, err
+	}
+	return role, nil
+}
+
+// Delete 删除角色
+func (s *Service) Delete(ctx context.Context, req DeleteRoleRequest) error {
+	if err := s.validator.Struct(req); err != nil {
+		return err
+	}
+	return s.repo.Delete(ctx, req.ID)
+}
+
+// List 返回所有角色
+func (s *Service) List(ctx context.Context) ([]Role, error) {
+	return s.repo.List(ctx)
+}
+
+// FindByNames 根据角色名集合获取角色
+func (s *Service) FindByNames(ctx context.Context, names []string) ([]Role, error) {
+	return s.repo.FindByNames(ctx, names)
+}
+
+// EnsureDefaultRoles 确保默认角色存在
+func (s *Service) EnsureDefaultRoles(ctx context.Context, defaults map[string]string) error {
+	for name, desc := range defaults {
+		normalized := normalizeRoleName(name)
+		if normalized == "" {
+			continue
+		}
+
+		_, err := s.repo.GetByName(ctx, normalized)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := s.repo.Create(ctx, &Role{ID: uuid.New(), Name: normalized, Description: desc}); err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
+	}
+	return nil
 }

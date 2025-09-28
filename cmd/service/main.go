@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/Jayleonc/service/internal/server"
+	application "github.com/Jayleonc/service/internal/app"
 )
 
 func main() {
-	app, err := server.Bootstrap()
+	app, err := application.Bootstrap()
 	if err != nil {
 		slog.Error("failed to bootstrap application", "error", err)
 		return
