@@ -1,4 +1,4 @@
-import { useAuthStore } from '@/store/auth'
+import {useAuthStore} from '@/store/auth'
 
 const defaultHeaders = {
   'Content-Type': 'application/json',
@@ -12,7 +12,7 @@ async function parseEnvelope(response) {
   } catch (e) {
     throw new Error('响应解析失败')
   }
-  const { code, message, data } = json ?? {}
+  const {code, message, data} = json ?? {}
   if (!response.ok) {
     const msg = message || `HTTP ${response.status}`
     const err = new Error(msg)
@@ -41,10 +41,10 @@ function normaliseBody(payload) {
   return JSON.stringify(payload)
 }
 
-async function doFetch(url, options = {}, { retryOn401 = true } = {}) {
+async function doFetch(url, options = {}, {retryOn401 = true} = {}) {
   const auth = useAuthStore()
 
-  const headers = { ...defaultHeaders, ...(options.headers || {}) }
+  const headers = {...defaultHeaders, ...(options.headers || {})}
   if (auth.accessToken) {
     headers.Authorization = `Bearer ${auth.accessToken}`
   }
@@ -59,7 +59,7 @@ async function doFetch(url, options = {}, { retryOn401 = true } = {}) {
   if (res.status === 401 && retryOn401 && auth.refreshToken) {
     try {
       await auth.refresh()
-      const headers2 = { ...defaultHeaders, ...(options.headers || {}) }
+      const headers2 = {...defaultHeaders, ...(options.headers || {})}
       if (auth.accessToken) headers2.Authorization = `Bearer ${auth.accessToken}`
       const res2 = await fetch(url, {
         method: requestInit.method,
@@ -76,5 +76,5 @@ async function doFetch(url, options = {}, { retryOn401 = true } = {}) {
 }
 
 export const api = {
-  post: (url, body = {}, opts) => doFetch(url, { method: 'POST', body }, opts ?? {}),
+  post: (url, body = {}, opts) => doFetch(url, {method: 'POST', body}, opts ?? {}),
 }

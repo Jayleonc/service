@@ -1,7 +1,7 @@
 // Auth Store: manage tokens, user profile, and auth flows
-import { defineStore } from 'pinia'
+import {defineStore} from 'pinia'
 import router from '@/router'
-import { api } from '@/api/client'
+import {api} from '@/api/client'
 
 const TOKEN_KEY = 'auth.accessToken'
 const REFRESH_KEY = 'auth.refreshToken'
@@ -43,7 +43,7 @@ export const useAuthStore = defineStore('auth', {
       if (this.user) localStorage.setItem(USER_KEY, JSON.stringify(this.user))
       else localStorage.removeItem(USER_KEY)
     },
-    setSession({ access_token, refresh_token, expires_in, user }) {
+    setSession({access_token, refresh_token, expires_in, user}) {
       this.accessToken = access_token
       this.refreshToken = refresh_token
       // expires_in is seconds from backend
@@ -64,7 +64,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        const data = await api.post('/v1/users/login', { email, password })
+        const data = await api.post('/v1/users/login', {email, password})
         this.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -80,11 +80,11 @@ export const useAuthStore = defineStore('auth', {
         this.loading = false
       }
     },
-    async register({ name, email, password, phone }) {
+    async register({name, email, password, phone}) {
       this.loading = true
       this.error = null
       try {
-        await api.post('/v1/users/register', { name, email, password, phone })
+        await api.post('/v1/users/register', {name, email, password, phone})
         await router.push('/login')
       } catch (e) {
         this.error = e.message || '注册失败'
@@ -107,7 +107,7 @@ export const useAuthStore = defineStore('auth', {
     },
     async refresh() {
       if (!this.refreshToken) throw new Error('缺少刷新令牌')
-      const data = await api.post('/v1/auth/refresh', { refresh_token: this.refreshToken }, { retryOn401: false })
+      const data = await api.post('/v1/auth/refresh', {refresh_token: this.refreshToken}, {retryOn401: false})
       this.setSession({
         access_token: data.access_token,
         refresh_token: data.refresh_token,
