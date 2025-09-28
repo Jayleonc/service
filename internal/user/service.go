@@ -31,7 +31,6 @@ var (
 // Service coordinates user operations.
 type Service struct {
 	repo        *Repository
-	roleRepo    *role.Repository
 	validator   *validator.Validate
 	authService *auth.Service
 }
@@ -97,8 +96,8 @@ type LoginResult struct {
 }
 
 // NewService constructs a Service.
-func NewService(repo *Repository, roleRepo *role.Repository, validate *validator.Validate, authService *auth.Service) *Service {
-	return &Service{repo: repo, roleRepo: roleRepo, validator: validate, authService: authService}
+func NewService(repo *Repository, validate *validator.Validate, authService *auth.Service) *Service {
+	return &Service{repo: repo, validator: validate, authService: authService}
 }
 
 // Register persists a new user record.
@@ -341,7 +340,7 @@ func (s *Service) AssignRoles(ctx context.Context, req AssignRolesRequest) (Prof
 }
 
 func (s *Service) rolesByNames(ctx context.Context, names []string) ([]role.Role, error) {
-	roles, err := s.roleRepo.FindByNames(ctx, names)
+	roles, err := role.FindRolesByNames(ctx, names)
 	if err != nil {
 		return nil, err
 	}

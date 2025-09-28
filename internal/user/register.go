@@ -6,7 +6,6 @@ import (
 
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/internal/role"
 )
 
 // Register wires the user feature using the structured/DI development path.
@@ -31,8 +30,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	roleRepo := role.NewRepository(deps.DB)
-	svc := NewService(repo, roleRepo, deps.Validator, authService)
+	svc := NewService(repo, deps.Validator, authService)
 	handler := NewHandler(svc)
 	deps.Router.RegisterModule("", handler.GetRoutes())
 

@@ -5,31 +5,31 @@ import (
 	"github.com/google/uuid"
 )
 
-const contextSessionKey = "auth.session"
+const contextAuthContextKey = "auth.context"
 
-// SessionData captures the authenticated user context shared between features.
-type SessionData struct {
+// AuthContext captures the authenticated user context shared between features.
+type AuthContext struct {
 	SessionID    string
 	UserID       uuid.UUID
 	Roles        []string
 	RefreshToken string
 }
 
-// SetContextSession stores the authenticated session data into the Gin context.
-func SetContextSession(c *gin.Context, session SessionData) {
-	c.Set(contextSessionKey, session)
+// SetAuthContext stores the authenticated context data into the Gin context.
+func SetAuthContext(c *gin.Context, ctx AuthContext) {
+	c.Set(contextAuthContextKey, ctx)
 }
 
-// SessionFromContext retrieves the authenticated session from the Gin context.
-func SessionFromContext(c *gin.Context) (SessionData, bool) {
-	value, ok := c.Get(contextSessionKey)
+// AuthContextFromContext retrieves the authenticated context from the Gin context.
+func AuthContextFromContext(c *gin.Context) (AuthContext, bool) {
+	value, ok := c.Get(contextAuthContextKey)
 	if !ok {
-		return SessionData{}, false
+		return AuthContext{}, false
 	}
 
-	session, ok := value.(SessionData)
+	session, ok := value.(AuthContext)
 	if !ok {
-		return SessionData{}, false
+		return AuthContext{}, false
 	}
 
 	return session, true

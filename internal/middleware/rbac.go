@@ -1,13 +1,13 @@
 package middleware
 
 import (
-        "net/http"
-        "strings"
+	"net/http"
+	"strings"
 
-        "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/internal/feature"
-        "github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/pkg/response"
 )
 
 // RBAC ensures that the authenticated user has at least one of the required roles.
@@ -27,7 +27,7 @@ func RBAC(requiredRoles ...string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-                session, ok := feature.SessionFromContext(c)
+		session, ok := feature.AuthContextFromContext(c)
 		if !ok {
 			response.Error(c, http.StatusUnauthorized, 2051, "missing session")
 			c.Abort()
