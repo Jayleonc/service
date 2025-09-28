@@ -91,7 +91,7 @@ func (h *Handler) login(c *gin.Context) {
 }
 
 func (h *Handler) me(c *gin.Context) {
-	session, ok := feature.SessionFromContext(c)
+	session, ok := feature.AuthContextFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3021, "missing session")
 		return
@@ -107,7 +107,7 @@ func (h *Handler) me(c *gin.Context) {
 }
 
 func (h *Handler) updateMe(c *gin.Context) {
-	session, ok := feature.SessionFromContext(c)
+	session, ok := feature.AuthContextFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3031, "missing session")
 		return

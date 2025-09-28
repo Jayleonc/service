@@ -1,97 +1,97 @@
-# Feature-Oriented Go Application Scaffold
+# 面向特性的 Go 应用脚手架
 
-This repository captures the final iteration of our "feature self-registration" and "dual development paradigm" blueprint. It is a runnable Go service whose structure demonstrates how to combine an opinionated application core with features that register themselves without touching the bootstrap logic. The template is intentionally compact so that teams can move fast while keeping a clear path for long-term maintenance.
+本仓库收录了我们“特性自注册”和“双重开发范式”蓝图的最终形态。它是一个可运行的 Go 服务，展示了如何在拥有明确主见的应用核心之上，构建能够在不触碰启动流程的情况下自行注册的功能模块。模板刻意保持紧凑，让团队既能高速迭代，又能维持长期维护所需的清晰结构。
 
-## Architecture Overview
+## 架构总览
 
 ```
-cmd/service/            # Entry point – creates the application context
-internal/server/        # Application core, bootstrap logic and feature manifest
-internal/auth/          # Structured/DI example feature (user management)
-internal/role/          # Simple/Singleton example feature (role assignments)
-internal/middleware/    # Shared Gin middleware
-pkg/                    # Reusable infrastructure (config, DB, auth, telemetry, ...)
+cmd/service/            # 入口 - 创建应用上下文
+internal/server/        # 应用核心、启动逻辑与特性清单
+internal/auth/          # 结构化/依赖注入示例特性（用户管理）
+internal/role/          # 简单/单例示例特性（角色分配）
+internal/middleware/    # 共享的 Gin 中间件
+pkg/                    # 可复用的基础设施（配置、数据库、认证、观测等）
 ```
 
-The execution flow is as follows:
+执行流程如下：
 
-1. `cmd/service/main.go` creates a cancellable context, invokes the bootstrapper, and manages graceful shutdown.
-2. `internal/server/bootstrap.go` assembles shared infrastructure (config, logger, database, telemetry, HTTP router) and iterates the feature manifest.
-3. Each entry in the manifest exposes a `Register` function that receives shared dependencies and mounts routes on the shared router.
-4. `internal/server/app.go` encapsulates the HTTP server lifecycle (`Start`, `Shutdown`) so the entry point stays declarative.
+1. `cmd/service/main.go` 创建可取消的上下文、调用启动器并负责优雅停机。
+2. `internal/server/bootstrap.go` 组装共享基础设施（配置、日志、数据库、观测、HTTP 路由器）并遍历特性清单。
+3. 清单中的每个条目都暴露一个 `Register` 函数，接收共享依赖并在公共路由器上挂载路由。
+4. `internal/server/app.go` 封装 HTTP 服务器生命周期（`Start`、`Shutdown`），让入口函数保持声明式。
 
-## Feature Manifest
+## 特性清单
 
-`internal/app/bootstrap.go` is the single source of truth for enabled features. Adding a feature means:
+`internal/app/bootstrap.go` 是启用特性的唯一事实来源。新增特性意味着：
 
-1. Creating a package under `internal/` with a `Register(context.Context, feature.Dependencies) error` function.
-2. Appending the register function to the `Features` slice alongside a descriptive name.
-3. (Optional) Exporting additional setup logs to guide future readers.
+1. 在 `internal/` 下创建一个包含 `Register(context.Context, feature.Dependencies) error` 函数的包。
+2. 将该注册函数追加到 `Features` 切片中，并附上描述性名称。
+3. （可选）导出更多初始化日志，方便后续阅读。
 
-Because the bootstrapper simply loops over this list, the main function remains untouched as the application grows.
+由于启动器只是遍历这份列表，随着应用扩展，主函数可以保持原样。
 
-## Dual Development Paradigms
+## 双重开发范式
 
-Two features demonstrate how to balance speed and structure inside the same application.
+两个示例特性展示了如何在同一个应用中平衡速度与结构。
 
-### Structured / Dependency-Injection Path – `internal/auth`
+### 结构化 / 依赖注入路径 —— `internal/auth`
 
-The authentication feature models the "enterprise" path. `register.go` wires a repository, service, and HTTP handler. The repository owns migrations and data access logic, the service layer centralises validation, and the handler exposes REST endpoints. This style favours explicit dependencies and is ideal for complex, high-change domains.
+认证特性体现了“企业级”路线。`register.go` 负责装配仓储、服务和 HTTP 处理器。仓储拥有迁移和数据访问逻辑，服务层集中校验与领域编排，处理器暴露 REST 接口。这种风格强调显式依赖，适合复杂且变化频繁的业务场景。
 
-Key files:
+核心文件：
 
-- `internal/auth/repository.go` – persistence model, migrations, and error translation.
-- `internal/auth/service.go` – validation and domain orchestration.
-- `internal/auth/handler.go` – HTTP contract for `/v1/users`.
-- `internal/auth/register.go` – self-contained dependency graph assembly.
+- `internal/auth/repository.go` —— 持久化模型、迁移与错误转换。
+- `internal/auth/service.go` —— 校验与领域编排。
+- `internal/auth/handler.go` —— `/v1/users` 的 HTTP 契约。
+- `internal/auth/register.go` —— 自包含的依赖装配。
 
-### Simple / Singleton Path – `internal/role`
+### 简单 / 单例路径 —— `internal/role`
 
-The role feature embraces the "move fast" path. `register.go` fetches the globally initialised database (set up by the bootstrapper), runs a lightweight migration, and mounts a single handler. The handler itself directly touches GORM to insert rows for `POST /v1/roles`. No repository or service layer is introduced—the logic stays inside the handler for maximum velocity when requirements are small and well understood.
+角色特性践行“快速推进”路线。`register.go` 获取由启动器初始化的全局数据库，执行轻量级迁移，并挂载单个处理器。处理器直接使用 GORM 处理 `POST /v1/roles` 的插入。没有仓储或服务层——所有逻辑都留在处理器内，适用于需求清晰的简单 CRUD 场景。
 
-Key files:
+核心文件：
 
-- `internal/role/handler.go` – inline model definitions plus the request handler using `database.Default()`.
-- `internal/role/register.go` – minimal bootstrap, perfect for quick CRUD style features.
+- `internal/role/handler.go` —— 内联模型定义与使用 `database.Default()` 的请求处理器。
+- `internal/role/register.go` —— 极简启动流程，专为快节奏的 CRUD 特性设计。
 
-Both features share the same router instance and live side-by-side without leaking concerns into the bootstrapper.
+两个特性共享同一个路由器，彼此之间不会将关注点泄漏到启动器中。
 
-## Quick Start
+## 快速开始
 
-1. Clone this repository and change into the project directory.
-2. Rebrand the Go module path for your organisation by running the interactive initialiser:
+1. 克隆本仓库并进入项目目录。
+2. 运行交互式初始化工具，为你的组织重新命名 Go 模块路径：
 
    ```bash
    make init-project
    ```
 
-3. Scaffold your first feature with the guided generator:
+3. 使用向导式生成器脚手架第一个特性：
 
    ```bash
    make new-feature
    ```
 
-4. Run the service:
+4. 运行服务：
 
    ```bash
    go run ./cmd/service
    ```
 
-The server starts on `0.0.0.0:3000` by default. A health probe is available at `/health`, Prometheus metrics at `/metrics`, and the demo APIs under `/v1` (authenticated by the JWT manager initialised during bootstrap).
+服务默认监听 `0.0.0.0:3000`。健康检查位于 `/health`，Prometheus 指标位于 `/metrics`，示例 API 则暴露在 `/v1`（通过启动阶段初始化的 JWT 管理器进行认证）。
 
-## Extending the Template
+## 扩展模板
 
-1. **Create a feature** – add a folder under `internal/` and implement a `Register` function.
-2. **Add it to the manifest** – append an entry to `internal/app/bootstrap.go`.
-3. **Use the paradigm that fits** – wire explicit constructors (like `internal/auth`) or lean on global singletons (like `internal/role`). You can mix approaches within the same application depending on the feature.
+1. **创建特性** —— 在 `internal/` 下添加目录并实现 `Register` 函数。
+2. **加入清单** —— 向 `internal/app/bootstrap.go` 追加清单条目。
+3. **选择合适范式** —— 可以像 `internal/auth` 那样显式装配，也可以像 `internal/role` 那样依赖全局单例。根据特性选择最合适的方式，两种范式可以在同一应用中并存。
 
-With this workflow, a new feature can be added by touching only two locations: its own directory and the manifest.
+借助这套流程，新增特性只需修改两个位置：特性自身目录与清单。
 
-## Observability and Infrastructure
+## 可观测性与基础设施
 
-- Logging, metrics, database access, JWT management, and telemetry live in `pkg/`. Each package exposes both constructor-style (`New*`) and singleton-style (`Init`, `Default`) helpers so modules can choose the ergonomics they need.
-- Middleware such as request logging, panic recovery, metrics collection, and authentication live in `internal/middleware/` and are automatically applied by the shared router.
+- 日志、指标、数据库访问、JWT 管理与观测功能位于 `pkg/`。每个包都同时提供构造器风格（`New*`）与单例风格（`Init`、`Default`）的辅助方法，让模块可以自由选择更顺手的模式。
+- 请求日志、异常恢复、指标采集、认证等中间件位于 `internal/middleware/`，由共享路由器自动应用。
 
-## License
+## 许可证
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+基于 Apache License 2.0 发布，详见 [LICENSE](LICENSE)。

@@ -34,7 +34,7 @@ func AuthenticatedMiddleware(service *Service) gin.HandlerFunc {
 			return
 		}
 
-		feature.SetContextSession(c, session)
+		feature.SetAuthContext(c, session)
 		c.Next()
 	}
 }

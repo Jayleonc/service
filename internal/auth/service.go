@@ -51,7 +51,7 @@ func (s *Service) IssueTokens(ctx context.Context, userID uuid.UUID, roles []str
 		return Tokens{}, err
 	}
 
-	session := feature.SessionData{
+	session := feature.AuthContext{
 		SessionID:    sessionID,
 		UserID:       userID,
 		Roles:        roles,
@@ -96,15 +96,15 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 }
 
 // Validate extracts the session from the access token.
-func (s *Service) Validate(ctx context.Context, token string) (feature.SessionData, error) {
+func (s *Service) Validate(ctx context.Context, token string) (feature.AuthContext, error) {
 	claims, err := s.manager.ParseToken(token)
 	if err != nil {
-		return feature.SessionData{}, err
+		return feature.AuthContext{}, err
 	}
 
 	session, err := s.store.Get(ctx, claims.SessionID)
 	if err != nil {
-		return feature.SessionData{}, err
+		return feature.AuthContext{}, err
 	}
 
 	return session, nil
