@@ -70,7 +70,7 @@ func normalizeRoles(roles []string) []string {
 	seen := make(map[string]struct{}, len(roles))
 	cleaned := make([]string, 0, len(roles))
 	for _, roleName := range roles {
-		trimmed := strings.ToLower(strings.TrimSpace(roleName))
+		trimmed := strings.ToUpper(strings.TrimSpace(roleName))
 		if trimmed == "" {
 			continue
 		}

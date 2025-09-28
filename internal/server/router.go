@@ -48,7 +48,7 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 		r.Use(otelgin.Middleware(cfg.TelemetryName))
 	}
 
-	r.GET("/health", func(c *gin.Context) {
+	r.POST("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 

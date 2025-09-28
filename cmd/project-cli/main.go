@@ -566,7 +566,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
                 return
         }
 
-        rg.GET("{{.Route}}/ping", h.ping)
+        rg.POST("{{.Route}}/ping", h.ping)
 }
 
 func (h *Handler) ping(c *gin.Context) {
@@ -670,7 +670,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
                 return
         }
 
-        rg.GET("{{.Route}}/ping", h.ping)
+        rg.POST("{{.Route}}/ping", h.ping)
 }
 
 func (h *Handler) ping(c *gin.Context) {

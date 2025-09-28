@@ -57,9 +57,10 @@ export const useAuthStore = defineStore('auth', {
       this.refreshToken = null
       this.expiresAt = null
       this.user = null
+      this.error = null
       this.persist()
     },
-    async login(email, password) {
+    async login(email, password, redirectPath) {
       this.loading = true
       this.error = null
       try {
@@ -70,7 +71,8 @@ export const useAuthStore = defineStore('auth', {
           expires_in: data.expires_in,
           user: data.user,
         })
-        await router.replace('/');
+        const target = typeof redirectPath === 'string' && redirectPath ? redirectPath : '/'
+        await router.replace(target)
       } catch (e) {
         this.error = e.message || '登录失败'
         throw e
@@ -83,7 +85,6 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
       try {
         await api.post('/v1/users/register', { name, email, password, phone })
-        // 注册成功跳转登录
         await router.push('/login')
       } catch (e) {
         this.error = e.message || '注册失败'
@@ -93,24 +94,16 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async fetchMe() {
-      try {
-        const data = await api.get('/v1/users/me')
-        this.user = data
-        this.persist()
-        return data
-      } catch (e) {
-        throw e
-      }
+      const data = await api.post('/v1/users/me/get', {})
+      this.user = data
+      this.persist()
+      return data
     },
     async updateMe(payload) {
-      try {
-        const data = await api.put('/v1/users/me', payload)
-        this.user = data
-        this.persist()
-        return data
-      } catch (e) {
-        throw e
-      }
+      const data = await api.post('/v1/users/me/update', payload)
+      this.user = data
+      this.persist()
+      return data
     },
     async refresh() {
       if (!this.refreshToken) throw new Error('缺少刷新令牌')

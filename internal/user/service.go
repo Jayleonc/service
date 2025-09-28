@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/role"
+	"github.com/Jayleonc/service/pkg/constant"
 )
 
 var (
@@ -72,7 +73,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, e
 		return Profile{}, err
 	}
 
-	defaultRoles := []string{"user"}
+	defaultRoles := []string{constant.RoleUser}
 	user := User{
 		ID:           uuid.New(),
 		Name:         input.Name,
@@ -258,7 +259,7 @@ func parseRoles(raw string) []string {
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed != "" {
-			out = append(out, strings.ToLower(trimmed))
+			out = append(out, strings.ToUpper(trimmed))
 		}
 	}
 	return out
@@ -271,7 +272,7 @@ func filterRoles(roles []string) []string {
 	seen := make(map[string]struct{}, len(roles))
 	cleaned := make([]string, 0, len(roles))
 	for _, roleName := range roles {
-		trimmed := strings.ToLower(strings.TrimSpace(roleName))
+		trimmed := strings.ToUpper(strings.TrimSpace(roleName))
 		if trimmed == "" {
 			continue
 		}
