@@ -443,11 +443,11 @@ otel-test:
 deps-reset:
 	git checkout -- go.mod
 	go mod tidy
-	go mod vendor
+	# vendoring removed: use go modules from proxy/cache
 
 tidy:
 	go mod tidy
-	go mod vendor
+	# vendoring removed: use go modules from proxy/cache
 
 deps-list:
 	go list -m -u -mod=readonly all
@@ -455,7 +455,7 @@ deps-list:
 deps-upgrade:
 	go get -u -v ./...
 	go mod tidy
-	go mod vendor
+	# vendoring removed: use go modules from proxy/cache
 
 deps-cleancache:
 	go clean -modcache
@@ -463,13 +463,13 @@ deps-cleancache:
 list:
 	go list -mod=mod all
 
-# ==============================================================================
-# Class Stuff
-
-run:
+ # ==============================================================================
+ # Class Stuff
+ 
+ run:
 	go run api/services/sales/main.go | go run api/tooling/logfmt/main.go
 
-run-help:
+ run-help:
 	go run api/services/sales/main.go --help | go run api/tooling/logfmt/main.go
 
 curl:

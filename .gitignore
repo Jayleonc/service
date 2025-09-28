@@ -24,6 +24,7 @@ api/cmd/frontends/admin/.env
 # Folders
 _obj
 _test
+vendor/
 
 # Editor files
 .idea/
