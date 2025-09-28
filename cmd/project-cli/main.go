@@ -219,7 +219,7 @@ func createFeature(root, name, featureType string) error {
 	data := featureTemplateData{
 		Package:     name,
 		Name:        name,
-		Route:       "/" + name,
+		FeatureName: name,
 		DisplayName: display,
 		LogMessage:  fmt.Sprintf("%s feature initialised", display),
 		EntityName:  strings.ReplaceAll(display, " ", ""),
@@ -259,7 +259,7 @@ func createFeature(root, name, featureType string) error {
 type featureTemplateData struct {
 	Package     string
 	Name        string
-	Route       string
+	FeatureName string
 	DisplayName string
 	LogMessage  string
 	EntityName  string
@@ -563,13 +563,14 @@ func NewHandler() *Handler {
         return &Handler{}
 }
 
+// GetRoutes 在这里定义模块的相对路由，无需包含模块名。
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
         return feature.ModuleRoutes{
                 PublicRoutes: []feature.RouteDefinition{
-                        {Path: "{{.Route}}/ping", Handler: h.ping},
+                        {Path: "ping", Handler: h.ping},
                 },
                 AuthenticatedRoutes: []feature.RouteDefinition{
-                        {Path: "{{.Route}}/echo", Handler: h.echo},
+                        {Path: "echo", Handler: h.echo},
                 },
         }
 }
@@ -602,17 +603,22 @@ import (
 )
 
 func Register(ctx context.Context, deps feature.Dependencies) error {
+        // 校验当前模块所需的依赖是否已经注入。
         if err := deps.Require("Router"); err != nil {
                 return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
         }
 
+        // 确保认证服务可用，以复用统一的身份能力。
         if auth.DefaultService() == nil {
                 return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
         }
 
+        // 构建处理器并注册模块路由。
         handler := NewHandler()
-        deps.Router.RegisterModule("", handler.GetRoutes())
+        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
+        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
+        // 记录模块初始化日志，便于排查问题。
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "singleton")
         }
@@ -696,13 +702,14 @@ func NewHandler(service *Service) *Handler {
         return &Handler{service: service}
 }
 
+// GetRoutes 在这里定义模块的相对路由，无需包含模块名。
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
         return feature.ModuleRoutes{
                 PublicRoutes: []feature.RouteDefinition{
-                        {Path: "{{.Route}}/ping", Handler: h.ping},
+                        {Path: "ping", Handler: h.ping},
                 },
                 AuthenticatedRoutes: []feature.RouteDefinition{
-                        {Path: "{{.Route}}/process", Handler: h.process},
+                        {Path: "process", Handler: h.process},
                 },
         }
 }
@@ -745,19 +752,24 @@ import (
 )
 
 func Register(ctx context.Context, deps feature.Dependencies) error {
+        // 校验当前模块所需的依赖是否已经注入。
         if err := deps.Require("DB", "Router"); err != nil {
                 return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
         }
 
+        // 确保认证服务可用，以复用统一的身份能力。
         if auth.DefaultService() == nil {
                 return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
         }
 
+        // 构建存储和服务层，准备路由处理器。
         repo := NewRepository(deps.DB)
         svc := NewService(repo)
         handler := NewHandler(svc)
-        deps.Router.RegisterModule("", handler.GetRoutes())
+        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
+        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
+        // 记录模块初始化日志，便于排查问题。
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured")
         }

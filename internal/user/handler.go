@@ -26,19 +26,19 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 	return feature.ModuleRoutes{
 		PublicRoutes: []feature.RouteDefinition{
-			{Path: "/user/register", Handler: h.register},
-			{Path: "/user/login", Handler: h.login},
+			{Path: "register", Handler: h.register},
+			{Path: "login", Handler: h.login},
 		},
 		AuthenticatedRoutes: []feature.RouteDefinition{
-			{Path: "/user/me/get", Handler: h.me},
-			{Path: "/user/me/update", Handler: h.updateMe},
+			{Path: "me/get", Handler: h.me},
+			{Path: "me/update", Handler: h.updateMe},
 		},
 		AdminRoutes: []feature.RouteDefinition{
-			{Path: "/user/create", Handler: h.create},
-			{Path: "/user/update", Handler: h.update},
-			{Path: "/user/delete", Handler: h.delete},
-			{Path: "/user/list", Handler: h.list},
-			{Path: "/user/assign_roles", Handler: h.assignRoles},
+			{Path: "create", Handler: h.create},
+			{Path: "update", Handler: h.update},
+			{Path: "delete", Handler: h.delete},
+			{Path: "list", Handler: h.list},
+			{Path: "assign_roles", Handler: h.assignRoles},
 		},
 	}
 }

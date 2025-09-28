@@ -27,10 +27,10 @@ func NewHandler() *Handler {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 	return feature.ModuleRoutes{
 		AdminRoutes: []feature.RouteDefinition{
-			{Path: "/role/create", Handler: h.create},
-			{Path: "/role/update", Handler: h.update},
-			{Path: "/role/delete", Handler: h.delete},
-			{Path: "/role/list", Handler: h.list},
+			{Path: "create", Handler: h.create},
+			{Path: "update", Handler: h.update},
+			{Path: "delete", Handler: h.delete},
+			{Path: "list", Handler: h.list},
 		},
 	}
 }

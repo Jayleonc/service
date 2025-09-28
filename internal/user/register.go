@@ -26,7 +26,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 
 	svc := NewService(repo, deps.Validator, authService)
 	handler := NewHandler(svc)
-	deps.Router.RegisterModule("", handler.GetRoutes())
+	deps.Router.RegisterModule("user", handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("user feature initialised", "pattern", "structured")
