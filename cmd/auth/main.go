@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ardanlabs/service/internal/config"
-	"github.com/ardanlabs/service/pkg/auth"
-	"github.com/ardanlabs/service/pkg/logger"
+	"github.com/Jayleonc/service/internal/config"
+	"github.com/Jayleonc/service/pkg/auth"
+	"github.com/Jayleonc/service/pkg/logger"
 )
 
 func main() {

@@ -1,8 +1,8 @@
 # Ultimate Software Design with Kubernetes
 
 [![CircleCI](https://circleci.com/gh/ardanlabs/service.svg?style=svg)](https://circleci.com/gh/ardanlabs/service)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ardanlabs/service)](https://goreportcard.com/report/github.com/ardanlabs/service)
-[![go.mod Go version](https://img.shields.io/github/go-mod/go-version/ardanlabs/service)](https://github.com/ardanlabs/service)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Jayleonc/service)](https://goreportcard.com/report/github.com/Jayleonc/service)
+[![go.mod Go version](https://img.shields.io/github/go-mod/go-version/ardanlabs/service)](https://github.com/Jayleonc/service)
 
 [![InsightsSnapshot](https://dl.circleci.com/insights-snapshot/gh/ardanlabs/service/master/workflow/badge.svg)](https://app.circleci.com/insights/github/ardanlabs/service/workflows/workflow/overview?branch=master)
 
@@ -29,7 +29,7 @@ The class behind this starter kit teaches how to build production-level software
 
 Learn more about the project:
 
-[Wiki](https://github.com/ardanlabs/service/wiki) | [Course Outline](https://github.com/ardanlabs/service/wiki/course-outline) | [Class Schedule](https://www.ardanlabs.com/events/)
+[Wiki](https://github.com/Jayleonc/service/wiki) | [Course Outline](https://github.com/Jayleonc/service/wiki/course-outline) | [Class Schedule](https://www.ardanlabs.com/events/)
 
 ## Licensing
 
@@ -56,15 +56,15 @@ hello@ardanlabs.com
 
 ## Index
 
-- [Installation](https://github.com/ardanlabs/service?tab=readme-ov-file#installation)
-- [Create Your Own Version](https://github.com/ardanlabs/service?tab=readme-ov-file#create-your-own-version)
-- [Running The Project](https://github.com/ardanlabs/service?tab=readme-ov-file#running-the-project)
-- [Purchase Video](https://github.com/ardanlabs/service?tab=readme-ov-file#purchase-video)
-- [Experience](https://github.com/ardanlabs/service?tab=readme-ov-file#our-experience)
-- [Teacher](https://github.com/ardanlabs/service?tab=readme-ov-file#our-teacher)
-- [More About Go](https://github.com/ardanlabs/service?tab=readme-ov-file#more-about-go)
-- [Minimal Qualified Student](https://github.com/ardanlabs/service?tab=readme-ov-file#minimal-qualified-student)
-- [Joining the Go Slack Community](https://github.com/ardanlabs/service?tab=readme-ov-file#joining-the-go-slack-community)
+- [Installation](https://github.com/Jayleonc/service?tab=readme-ov-file#installation)
+- [Create Your Own Version](https://github.com/Jayleonc/service?tab=readme-ov-file#create-your-own-version)
+- [Running The Project](https://github.com/Jayleonc/service?tab=readme-ov-file#running-the-project)
+- [Purchase Video](https://github.com/Jayleonc/service?tab=readme-ov-file#purchase-video)
+- [Experience](https://github.com/Jayleonc/service?tab=readme-ov-file#our-experience)
+- [Teacher](https://github.com/Jayleonc/service?tab=readme-ov-file#our-teacher)
+- [More About Go](https://github.com/Jayleonc/service?tab=readme-ov-file#more-about-go)
+- [Minimal Qualified Student](https://github.com/Jayleonc/service?tab=readme-ov-file#minimal-qualified-student)
+- [Joining the Go Slack Community](https://github.com/Jayleonc/service?tab=readme-ov-file#joining-the-go-slack-community)
 
 ## Installation
 
@@ -74,7 +74,7 @@ To clone the project, create a folder and use the git clone command. Then please
 $ cd $HOME
 $ mkdir code
 $ cd code
-$ git clone https://github.com/ardanlabs/service or git@github.com:ardanlabs/service.git
+$ git clone https://github.com/Jayleonc/service or git@github.com:ardanlabs/service.git
 $ cd service
 ```
 
@@ -88,7 +88,7 @@ $ go install golang.org/x/tools/cmd/gonew@latest
 $ cd $HOME
 $ mkdir code
 $ cd code
-$ gonew github.com/ardanlabs/service github.com/mydomain/myproject
+$ gonew github.com/Jayleonc/service github.com/mydomain/myproject
 $ cd myproject
 $ go mod vendor
 ```

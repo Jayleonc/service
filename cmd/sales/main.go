@@ -18,19 +18,18 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.24.0"
 
-	"github.com/ardanlabs/service/internal/config"
-	"github.com/ardanlabs/service/internal/handler"
-	"github.com/ardanlabs/service/internal/repository"
-	"github.com/ardanlabs/service/internal/service"
-	"github.com/ardanlabs/service/pkg/auth"
-	"github.com/ardanlabs/service/pkg/database"
-	"github.com/ardanlabs/service/pkg/logger"
+	"github.com/Jayleonc/service/internal/config"
+	"github.com/Jayleonc/service/internal/handler"
+	"github.com/Jayleonc/service/internal/repository"
+	"github.com/Jayleonc/service/internal/service"
+	"github.com/Jayleonc/service/pkg/auth"
+	"github.com/Jayleonc/service/pkg/database"
+	"github.com/Jayleonc/service/pkg/logger"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-
 	cfg, err := config.Parse(ctx, os.Args[1:])
 	if err != nil {
 		panic(err)

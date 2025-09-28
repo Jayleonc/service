@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ardanlabs/service/pkg/auth"
+	"github.com/Jayleonc/service/pkg/auth"
 )
 
 // Authenticated ensures the request has a valid JWT token.

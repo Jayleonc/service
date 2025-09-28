@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/ardanlabs/service/pkg/logger"
+	"github.com/Jayleonc/service/pkg/logger"
 )
 
 // InjectLogger attaches the slog logger to the request context.

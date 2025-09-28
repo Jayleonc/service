@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/ardanlabs/service/internal/service"
+	"github.com/Jayleonc/service/internal/service"
 )
 
 // UserHandler exposes user endpoints.

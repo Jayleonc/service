@@ -9,10 +9,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	"github.com/ardanlabs/service/internal/handler/v1"
-	"github.com/ardanlabs/service/internal/middleware"
-	"github.com/ardanlabs/service/internal/service"
-	"github.com/ardanlabs/service/pkg/auth"
+	"github.com/Jayleonc/service/internal/handler/v1"
+	"github.com/Jayleonc/service/internal/middleware"
+	"github.com/Jayleonc/service/internal/service"
+	"github.com/Jayleonc/service/pkg/auth"
 )
 
 // RouterConfig contains dependencies for building the HTTP router.

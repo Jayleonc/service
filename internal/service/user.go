@@ -7,7 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 
-	"github.com/ardanlabs/service/internal/repository"
+	"github.com/Jayleonc/service/internal/repository"
 )
 
 // User represents a domain user.
