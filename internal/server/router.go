@@ -114,36 +114,21 @@ func (r *Router) RegisterModule(pathPrefix string, routes feature.ModuleRoutes) 
 }
 
 func sanitizePath(prefix, path string) string {
-	p := strings.TrimSpace(path)
-	if p == "" {
-		return ""
-	}
-
-	if strings.HasPrefix(p, "/") {
-		return collapsePath(p)
-	}
-
-	pre := strings.TrimSpace(prefix)
-	if pre == "" {
-		return "/" + collapsePath(p)
-	}
-
-	if !strings.HasPrefix(pre, "/") {
-		pre = "/" + pre
-	}
-
-	return collapsePath(strings.TrimRight(pre, "/") + "/" + strings.TrimLeft(p, "/"))
+	// 直接拼接 prefix 和 path，然后交由 collapsePath 清理。
+	// 这种方式确保 prefix 总是被应用，同时能优雅处理各种斜杠组合。
+	return collapsePath(prefix + "/" + path)
 }
 
 func collapsePath(path string) string {
 	if path == "" {
-		return ""
+		return "/"
 	}
 
-	cleaned := "/" + strings.TrimPrefix(strings.ReplaceAll(path, "//", "/"), "/")
-	if cleaned == "" {
-		return ""
+	// 循环替换，确保 ///a//b -> /a/b
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
 	}
 
-	return cleaned
+	// 移除首尾可能多余的斜杠，并确保最终结果以单个 / 开头
+	return "/" + strings.Trim(path, "/")
 }

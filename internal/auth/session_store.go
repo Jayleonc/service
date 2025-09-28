@@ -119,6 +119,7 @@ func (s *SessionStore) ReplaceRefreshToken(ctx context.Context, data feature.Aut
 		return err
 	}
 
+	// TODO 重构成使用 lua 脚本
 	pipe := s.client.TxPipeline()
 	pipe.Set(ctx, s.sessionKey(data.SessionID), raw, ttl)
 	pipe.Set(ctx, s.refreshKey(data.RefreshToken), data.SessionID, ttl)
