@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/server"
 	"github.com/Jayleonc/service/pkg/response"
 )
 
@@ -21,10 +21,10 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // GetRoutes 声明认证模块的路由
-func (h *Handler) GetRoutes() feature.ModuleRoutes {
-	return feature.ModuleRoutes{
-		PublicRoutes: []feature.RouteDefinition{
-			{Path: "/refresh", Handler: h.refresh},
+func (h *Handler) GetRoutes() server.ModuleRoutes {
+	return server.ModuleRoutes{
+		PublicRoutes: []server.RouteDefinition{
+			{Path: "/auth/refresh", Handler: h.refresh},
 		},
 	}
 }

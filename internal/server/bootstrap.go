@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/module"
 	"github.com/Jayleonc/service/pkg/auth"
 	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
@@ -18,7 +18,7 @@ import (
 
 // Bootstrap assembles the shared infrastructure, registers every module and returns
 // a ready-to-run application instance.
-func Bootstrap(modules []feature.Entry) (*App, error) {
+func Bootstrap(modules []module.Entry) (*App, error) {
 	ctx := context.Background()
 
 	// ======= 初始化配置 =======
@@ -80,18 +80,18 @@ func Bootstrap(modules []feature.Entry) (*App, error) {
 	}
 
 	// ======= 路由注册 =======
-	router := NewRouter(RouterConfig{
+	router, api := NewRouter(RouterConfig{
 		Logger:           log,
 		Registry:         registry,
 		TelemetryEnabled: cfg.Telemetry.Enabled,
 		TelemetryName:    cfg.Telemetry.ServiceName,
-	}, nil)
+	})
 
-	deps := feature.Dependencies{
+	deps := module.Dependencies{
 		Logger:    log,
 		DB:        db,
-		Engine:    router.Engine,
 		Router:    router,
+		API:       api,
 		Auth:      authManager,
 		Registry:  registry,
 		Config:    cfg,
@@ -106,5 +106,5 @@ func Bootstrap(modules []feature.Entry) (*App, error) {
 		log.Info("module registered", "module", entry.Name)
 	}
 
-	return NewApp(router.Engine, cfg, log), nil
+	return NewApp(router, cfg, log), nil
 }

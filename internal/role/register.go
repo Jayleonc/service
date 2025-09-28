@@ -5,17 +5,18 @@ import (
 	"fmt"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/server"
 	"github.com/Jayleonc/service/pkg/constant"
 )
 
 // Register initialises the role module following the singleton-friendly path.
-func Register(ctx context.Context, deps feature.Dependencies) error {
+func Register(ctx context.Context, deps module.Dependencies) error {
 	if deps.DB == nil {
 		return fmt.Errorf("role module requires a database instance")
 	}
-	if deps.Router == nil {
-		return fmt.Errorf("role module requires a route registrar")
+	if deps.API == nil {
+		return fmt.Errorf("role module requires an API router group")
 	}
 	if deps.Validator == nil {
 		return fmt.Errorf("role module requires a validator instance")
@@ -40,7 +41,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 	}
 
 	handler := NewHandler(svc)
-	deps.Router.RegisterModule("/roles", handler.GetRoutes())
+	server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("role module initialised", "pattern", "singleton")

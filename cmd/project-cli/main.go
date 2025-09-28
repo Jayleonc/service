@@ -475,7 +475,7 @@ func insertImport(content, alias, path string) (string, error) {
 }
 
 func insertModuleEntry(content, moduleName, reference string) (string, error) {
-	const marker = "var Modules = []feature.Entry{"
+	const marker = "var Modules = []module.Entry{"
 
 	idx := strings.Index(content, marker)
 	if idx == -1 {
@@ -545,7 +545,7 @@ import (
 
         "github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/internal/server"
         "github.com/Jayleonc/service/pkg/response"
 )
 
@@ -555,13 +555,13 @@ func NewHandler() *Handler {
         return &Handler{}
 }
 
-func (h *Handler) GetRoutes() feature.ModuleRoutes {
-        return feature.ModuleRoutes{
-                PublicRoutes: []feature.RouteDefinition{
-                        {Path: "/ping", Handler: h.ping},
+func (h *Handler) GetRoutes() server.ModuleRoutes {
+        return server.ModuleRoutes{
+                PublicRoutes: []server.RouteDefinition{
+                        {Path: "{{.Route}}/ping", Handler: h.ping},
                 },
-                AuthenticatedRoutes: []feature.RouteDefinition{
-                        {Path: "/echo", Handler: h.echo},
+                AuthenticatedRoutes: []server.RouteDefinition{
+                        {Path: "{{.Route}}/echo", Handler: h.echo},
                 },
         }
 }
@@ -590,12 +590,13 @@ import (
         "fmt"
 
         "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/internal/module"
+        "github.com/Jayleonc/service/internal/server"
 )
 
-func Register(ctx context.Context, deps feature.Dependencies) error {
-        if deps.Router == nil {
-                return fmt.Errorf("{{.Name}} module requires the route registrar")
+func Register(ctx context.Context, deps module.Dependencies) error {
+        if deps.API == nil {
+                return fmt.Errorf("{{.Name}} module requires the API router group")
         }
 
         authService := auth.DefaultService()
@@ -604,7 +605,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
         }
 
         handler := NewHandler()
-        deps.Router.RegisterModule("{{.Route}}", handler.GetRoutes())
+        server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "singleton")
@@ -660,7 +661,7 @@ import (
 
         "github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/internal/server"
         "github.com/Jayleonc/service/pkg/response"
 )
 
@@ -672,13 +673,13 @@ func NewHandler(service *Service) *Handler {
         return &Handler{service: service}
 }
 
-func (h *Handler) GetRoutes() feature.ModuleRoutes {
-        return feature.ModuleRoutes{
-                PublicRoutes: []feature.RouteDefinition{
-                        {Path: "/ping", Handler: h.ping},
+func (h *Handler) GetRoutes() server.ModuleRoutes {
+        return server.ModuleRoutes{
+                PublicRoutes: []server.RouteDefinition{
+                        {Path: "{{.Route}}/ping", Handler: h.ping},
                 },
-                AuthenticatedRoutes: []feature.RouteDefinition{
-                        {Path: "/process", Handler: h.process},
+                AuthenticatedRoutes: []server.RouteDefinition{
+                        {Path: "{{.Route}}/process", Handler: h.process},
                 },
         }
 }
@@ -717,15 +718,16 @@ import (
         "fmt"
 
         "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/internal/module"
+        "github.com/Jayleonc/service/internal/server"
 )
 
-func Register(ctx context.Context, deps feature.Dependencies) error {
+func Register(ctx context.Context, deps module.Dependencies) error {
         if deps.DB == nil {
                 return fmt.Errorf("{{.Name}} module requires a database instance")
         }
-        if deps.Router == nil {
-                return fmt.Errorf("{{.Name}} module requires the route registrar")
+        if deps.API == nil {
+                return fmt.Errorf("{{.Name}} module requires the API router group")
         }
 
         authService := auth.DefaultService()
@@ -736,7 +738,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
         repo := NewRepository(deps.DB)
         svc := NewService(repo)
         handler := NewHandler(svc)
-        deps.Router.RegisterModule("{{.Route}}", handler.GetRoutes())
+        server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured")

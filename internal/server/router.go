@@ -13,11 +13,23 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/internal/middleware"
 	"github.com/Jayleonc/service/pkg/constant"
 	"github.com/Jayleonc/service/pkg/validation"
 )
+
+// RouteDefinition 定义了最基础的路由信息
+type RouteDefinition struct {
+	Path    string
+	Handler gin.HandlerFunc
+}
+
+// ModuleRoutes 是一个模块对外暴露的、按权限划分的路由清单
+type ModuleRoutes struct {
+	PublicRoutes        []RouteDefinition
+	AuthenticatedRoutes []RouteDefinition
+	AdminRoutes         []RouteDefinition
+}
 
 // RouterConfig defines the common HTTP middleware configuration shared by all modules.
 type RouterConfig struct {
@@ -27,18 +39,9 @@ type RouterConfig struct {
 	TelemetryName    string
 }
 
-// Router centralises HTTP route registration and applies the correct middleware stack for
-// public, authenticated, and admin endpoints.
-type Router struct {
-	Engine           *gin.Engine
-	api              *gin.RouterGroup
-	authService      *auth.Service
-	authMiddlewares  []gin.HandlerFunc
-	adminMiddlewares []gin.HandlerFunc
-}
-
-// NewRouter constructs a Router with the provided configuration and authentication service.
-func NewRouter(cfg RouterConfig, authService *auth.Service) *Router {
+// NewRouter constructs the base Gin engine and returns both the engine and the
+// authenticated "/v1" API group used by modules.
+func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 	gin.SetMode(gin.DebugMode)
 
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
@@ -47,57 +50,40 @@ func NewRouter(cfg RouterConfig, authService *auth.Service) *Router {
 		validation.Init()
 	}
 
-	engine := gin.New()
-	engine.Use(gin.Logger())
-	engine.Use(middleware.InjectLogger(cfg.Logger))
-	engine.Use(middleware.Recovery())
+	r := gin.New()
+	r.Use(gin.Logger())
+	r.Use(middleware.InjectLogger(cfg.Logger))
+	r.Use(middleware.Recovery())
 
 	if cfg.Registry != nil {
-		engine.Use(middleware.Metrics(cfg.Registry))
-		engine.GET("/metrics", gin.WrapH(promhttp.HandlerFor(cfg.Registry, promhttp.HandlerOpts{})))
+		r.Use(middleware.Metrics(cfg.Registry))
+		r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(cfg.Registry, promhttp.HandlerOpts{})))
 	}
 
 	if cfg.TelemetryEnabled {
-		engine.Use(otelgin.Middleware(cfg.TelemetryName))
+		r.Use(otelgin.Middleware(cfg.TelemetryName))
 	}
 
-	engine.POST("/health", func(c *gin.Context) {
+	r.POST("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	api := engine.Group("/v1")
-
-	router := &Router{
-		Engine: engine,
-		api:    api,
-	}
-
-	router.setAuthService(authService)
-	return router
+	api := r.Group("/v1")
+	return r, api
 }
 
-// RegisterModule registers the provided module routes under the specified prefix.
-func (r *Router) RegisterModule(pathPrefix string, modRoutes feature.ModuleRoutes) {
-	if r == nil || r.api == nil {
+// RegisterModuleRoutes 将模块路由注册到统一路由中
+func RegisterModuleRoutes(api *gin.RouterGroup, authService *auth.Service, routes ModuleRoutes) {
+	if api == nil {
 		return
 	}
 
-	r.refreshAuthChains()
-
-	prefix := strings.TrimSpace(pathPrefix)
-	if prefix == "/" {
-		prefix = ""
-	}
-	if prefix != "" && !strings.HasPrefix(prefix, "/") {
-		prefix = "/" + prefix
-	}
-
-	register := func(defs []feature.RouteDefinition, middlewares []gin.HandlerFunc) {
+	register := func(defs []RouteDefinition, middlewares ...gin.HandlerFunc) {
 		if len(defs) == 0 {
 			return
 		}
 
-		group := r.api.Group(prefix)
+		group := api.Group("")
 		if len(middlewares) > 0 {
 			group.Use(middlewares...)
 		}
@@ -109,8 +95,9 @@ func (r *Router) RegisterModule(pathPrefix string, modRoutes feature.ModuleRoute
 
 			path := strings.TrimSpace(def.Path)
 			if path == "" {
-				path = "/"
+				continue
 			}
+
 			if !strings.HasPrefix(path, "/") {
 				path = "/" + path
 			}
@@ -119,49 +106,13 @@ func (r *Router) RegisterModule(pathPrefix string, modRoutes feature.ModuleRoute
 		}
 	}
 
-	register(modRoutes.PublicRoutes, nil)
-	register(modRoutes.AuthenticatedRoutes, r.authMiddlewares)
-	adminChain := r.adminMiddlewares
-	if len(adminChain) == 0 {
-		adminChain = r.authMiddlewares
-	}
-	register(modRoutes.AdminRoutes, adminChain)
-}
+	register(routes.PublicRoutes)
 
-func (r *Router) refreshAuthChains() {
-	if r == nil {
-		return
+	if authService != nil {
+		register(routes.AuthenticatedRoutes, middleware.Authenticated(authService))
+		register(routes.AdminRoutes, middleware.Authenticated(authService), middleware.RBAC(constant.RoleAdmin))
+	} else {
+		register(routes.AuthenticatedRoutes)
+		register(routes.AdminRoutes)
 	}
-
-	svc := r.authService
-	if svc == nil {
-		svc = auth.DefaultService()
-	}
-	if svc == nil {
-		r.setAuthService(nil)
-		return
-	}
-
-	if r.authService == svc && len(r.authMiddlewares) > 0 {
-		return
-	}
-
-	r.setAuthService(svc)
-}
-
-func (r *Router) setAuthService(svc *auth.Service) {
-	if r == nil {
-		return
-	}
-
-	r.authService = svc
-	if svc == nil {
-		r.authMiddlewares = nil
-		r.adminMiddlewares = []gin.HandlerFunc{middleware.RBAC(constant.RoleAdmin)}
-		return
-	}
-
-	authenticated := middleware.Authenticated(svc)
-	r.authMiddlewares = []gin.HandlerFunc{authenticated}
-	r.adminMiddlewares = []gin.HandlerFunc{authenticated, middleware.RBAC(constant.RoleAdmin)}
 }

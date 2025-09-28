@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/server"
 	"github.com/Jayleonc/service/pkg/request"
 	"github.com/Jayleonc/service/pkg/response"
 )
@@ -23,22 +23,22 @@ func NewHandler(svc *Service) *Handler {
 }
 
 // GetRoutes returns the route declarations for the user module.
-func (h *Handler) GetRoutes() feature.ModuleRoutes {
-	return feature.ModuleRoutes{
-		PublicRoutes: []feature.RouteDefinition{
-			{Path: "/register", Handler: h.register},
-			{Path: "/login", Handler: h.login},
+func (h *Handler) GetRoutes() server.ModuleRoutes {
+	return server.ModuleRoutes{
+		PublicRoutes: []server.RouteDefinition{
+			{Path: "/users/register", Handler: h.register},
+			{Path: "/users/login", Handler: h.login},
 		},
-		AuthenticatedRoutes: []feature.RouteDefinition{
-			{Path: "/me/get", Handler: h.me},
-			{Path: "/me/update", Handler: h.updateMe},
+		AuthenticatedRoutes: []server.RouteDefinition{
+			{Path: "/users/me/get", Handler: h.me},
+			{Path: "/users/me/update", Handler: h.updateMe},
 		},
-		AdminRoutes: []feature.RouteDefinition{
-			{Path: "/create", Handler: h.create},
-			{Path: "/update", Handler: h.update},
-			{Path: "/delete", Handler: h.delete},
-			{Path: "/list", Handler: h.list},
-			{Path: "/assign_roles", Handler: h.assignRoles},
+		AdminRoutes: []server.RouteDefinition{
+			{Path: "/users/create", Handler: h.create},
+			{Path: "/users/update", Handler: h.update},
+			{Path: "/users/delete", Handler: h.delete},
+			{Path: "/users/list", Handler: h.list},
+			{Path: "/users/assign_roles", Handler: h.assignRoles},
 		},
 	}
 }
