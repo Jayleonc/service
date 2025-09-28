@@ -1,9 +1,8 @@
 package role
 
 import (
-	"github.com/google/uuid"
-
 	"github.com/Jayleonc/service/pkg/model"
+	"github.com/google/uuid"
 )
 
 // Role 定义系统角色模型
@@ -15,5 +14,5 @@ type Role struct {
 }
 
 func (Role) TableName() string {
-	return "roles"
+	return "role"
 }
