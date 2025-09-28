@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -30,6 +31,11 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+var (
+	mu      sync.RWMutex
+	current *Manager
+)
+
 // NewManager constructs a new Manager.
 func NewManager(cfg Config) (*Manager, error) {
 	if cfg.Secret == "" {
@@ -42,6 +48,30 @@ func NewManager(cfg Config) (*Manager, error) {
 		secret:   []byte(cfg.Secret),
 		dur:      cfg.Duration,
 	}, nil
+}
+
+// Init constructs a new manager and stores it as the global instance.
+func Init(cfg Config) (*Manager, error) {
+	manager, err := NewManager(cfg)
+	if err != nil {
+		return nil, err
+	}
+	SetDefault(manager)
+	return manager, nil
+}
+
+// SetDefault records manager as the global authentication manager.
+func SetDefault(manager *Manager) {
+	mu.Lock()
+	defer mu.Unlock()
+	current = manager
+}
+
+// Default returns the global authentication manager, if one has been configured.
+func Default() *Manager {
+	mu.RLock()
+	defer mu.RUnlock()
+	return current
 }
 
 // GenerateToken creates a signed JWT using the provided subject and roles.
