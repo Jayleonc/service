@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -17,6 +18,7 @@ type App struct {
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
 }
 
+// ServerConfig controls HTTP server behaviour.
 type ServerConfig struct {
 	Host         string        `mapstructure:"host"`
 	Port         int           `mapstructure:"port"`
@@ -24,6 +26,7 @@ type ServerConfig struct {
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 }
 
+// DatabaseConfig represents Postgres configuration for GORM.
 type DatabaseConfig struct {
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
@@ -33,6 +36,7 @@ type DatabaseConfig struct {
 	SSLMode  string `mapstructure:"sslmode"`
 }
 
+// AuthConfig holds authentication configuration.
 type AuthConfig struct {
 	Issuer   string        `mapstructure:"issuer"`
 	Audience string        `mapstructure:"audience"`
@@ -40,21 +44,28 @@ type AuthConfig struct {
 	TTL      time.Duration `mapstructure:"ttl"`
 }
 
+// LogConfig configures structured logging.
 type LogConfig struct {
 	Level  string `mapstructure:"level"`
 	Pretty bool   `mapstructure:"pretty"`
 }
 
+// TelemetryConfig configures tracing exporters.
 type TelemetryConfig struct {
 	ServiceName string `mapstructure:"service_name"`
 	Enabled     bool   `mapstructure:"enabled"`
 	Endpoint    string `mapstructure:"endpoint"`
 }
 
-// Parse loads configuration from the environment and command line arguments.
-func Parse(_ context.Context, _ []string) (App, error) {
+var (
+	global App
+	mu     sync.RWMutex
+	set    bool
+)
+
+// Load reads configuration from the environment and optional CLI args.
+func Load(_ context.Context, _ []string) (App, error) {
 	v := viper.New()
-	// Defaults
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 3000)
 	v.SetDefault("server.read_timeout", "5s")
@@ -64,37 +75,61 @@ func Parse(_ context.Context, _ []string) (App, error) {
 	v.SetDefault("database.port", 5432)
 	v.SetDefault("database.user", "postgres")
 	v.SetDefault("database.password", "postgres")
-	v.SetDefault("database.name", "service")
+	v.SetDefault("database.name", "auth")
 	v.SetDefault("database.sslmode", "disable")
 
-	v.SetDefault("auth.issuer", "ardanlabs")
-	v.SetDefault("auth.audience", "service")
+	v.SetDefault("auth.issuer", "toolbox")
+	v.SetDefault("auth.audience", "auth-service")
 	v.SetDefault("auth.secret", "supersecret")
 	v.SetDefault("auth.ttl", "15m")
 
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.pretty", false)
 
-	v.SetDefault("telemetry.service_name", "sales-service")
+	v.SetDefault("telemetry.service_name", "auth-service")
 	v.SetDefault("telemetry.enabled", false)
 	v.SetDefault("telemetry.endpoint", "localhost:4317")
 
-	// Environment variables
-	v.SetEnvPrefix("SALES")
+	v.SetEnvPrefix("AUTH")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-
-	// Bind legacy env var names used in compose/k8s
-	_ = v.BindEnv("database.host", "SALES_DB_HOST")
-	_ = v.BindEnv("database.port", "SALES_DB_PORT")
-	_ = v.BindEnv("database.user", "SALES_DB_USER")
-	_ = v.BindEnv("database.password", "SALES_DB_PASSWORD")
-	_ = v.BindEnv("database.name", "SALES_DB_NAME")
-	_ = v.BindEnv("database.sslmode", "SALES_DB_SSLMODE")
 
 	var cfg App
 	if err := v.Unmarshal(&cfg); err != nil {
 		return App{}, err
 	}
 	return cfg, nil
+}
+
+// Init loads the configuration and stores it as the global instance.
+func Init(ctx context.Context, args []string) (App, error) {
+	cfg, err := Load(ctx, args)
+	if err != nil {
+		return App{}, err
+	}
+	Set(cfg)
+	return cfg, nil
+}
+
+// Set stores cfg as the global configuration instance.
+func Set(cfg App) {
+	mu.Lock()
+	defer mu.Unlock()
+	global = cfg
+	set = true
+}
+
+// Get retrieves the global configuration instance and whether it is set.
+func Get() (App, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	return global, set
+}
+
+// MustGet returns the global configuration or panics if it has not been initialised.
+func MustGet() App {
+	if cfg, ok := Get(); ok {
+		return cfg
+	}
+	panic("config: global configuration not initialised")
 }
