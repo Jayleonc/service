@@ -9,27 +9,27 @@ import (
 	"github.com/Jayleonc/service/internal/role"
 )
 
-// Repository provides database access for users.
+// Repository 提供用户数据的数据库访问能力。
 type Repository struct {
 	db *gorm.DB
 }
 
-// NewRepository constructs a Repository.
+// NewRepository 创建 Repository 实例。
 func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// Create persists a new user.
+// Create 持久化新用户。
 func (r *Repository) Create(ctx context.Context, user *User) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
-// Update updates an existing user record.
+// Update 更新已有的用户记录。
 func (r *Repository) Update(ctx context.Context, user *User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
-// Delete removes a user record by ID.
+// Delete 根据 ID 删除用户，并清理角色关联关系。
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		target := &User{ID: id}
@@ -40,7 +40,7 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	})
 }
 
-// Get retrieves a user by ID including roles.
+// Get 根据 ID 查询用户并加载角色信息。
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 	var user User
 	if err := r.db.WithContext(ctx).Preload("Roles").First(&user, "id = ?", id).Error; err != nil {
@@ -49,7 +49,7 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 	return &user, nil
 }
 
-// GetByEmail retrieves a user by email including roles.
+// GetByEmail 根据邮箱查询用户并加载角色信息。
 func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
 	if err := r.db.WithContext(ctx).Preload("Roles").First(&user, "email = ?", email).Error; err != nil {
@@ -58,7 +58,7 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error
 	return &user, nil
 }
 
-// Query returns a base query for listing users.
+// Query 返回用于列表查询的基础链式查询对象。
 func (r *Repository) Query(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Model(&User{}).Preload("Roles")
 }
@@ -68,7 +68,7 @@ func (r *Repository) ReplaceRoles(ctx context.Context, user *User, roles []role.
 	return r.db.WithContext(ctx).Model(user).Association("Roles").Replace(roles)
 }
 
-// Migrate performs the schema migration for users.
+// Migrate 执行用户表结构迁移。
 func (r *Repository) Migrate(ctx context.Context) error {
 	return r.db.WithContext(ctx).AutoMigrate(&User{})
 }

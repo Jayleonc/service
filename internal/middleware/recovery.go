@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Recovery converts panics into JSON errors.
+// Recovery 将 panic 转换成 JSON 错误响应。
 func Recovery() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {

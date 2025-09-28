@@ -7,10 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
-// RBAC ensures that the authenticated user has at least one of the required roles.
+// RBAC 确保认证用户至少具备一个目标角色。
 func RBAC(requiredRoles ...string) gin.HandlerFunc {
 	normalized := make([]string, 0, len(requiredRoles))
 	seen := make(map[string]struct{}, len(requiredRoles))

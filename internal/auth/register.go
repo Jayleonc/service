@@ -17,7 +17,7 @@ var (
 	service   *Service
 )
 
-// Register wires the authentication feature using the structured/DI development path.
+// Register 以结构化/依赖注入方式初始化认证特性。
 func Register(ctx context.Context, deps feature.Dependencies) error {
 	if deps.Auth == nil {
 		return fmt.Errorf("auth feature requires an auth manager")
@@ -49,7 +49,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 	return nil
 }
 
-// DefaultService returns the globally registered auth service instance.
+// DefaultService 返回全局注册的认证服务实例。
 func DefaultService() *Service {
 	serviceMu.RLock()
 	defer serviceMu.RUnlock()

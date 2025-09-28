@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Jayleonc/service/pkg/request"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/request"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 	"github.com/Jayleonc/service/pkg/utils"
 )
 

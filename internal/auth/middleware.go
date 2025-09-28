@@ -7,10 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
-// AuthenticatedMiddleware ensures the request has a valid JWT token and stores the session in context.
+// AuthenticatedMiddleware 校验请求是否携带合法 JWT，并将会话信息写入上下文。
 func AuthenticatedMiddleware(service *Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")

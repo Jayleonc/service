@@ -14,19 +14,19 @@ import (
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/role"
 	"github.com/Jayleonc/service/pkg/constant"
-	"github.com/Jayleonc/service/pkg/paginator"
-	"github.com/Jayleonc/service/pkg/request"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/paginator"
+	"github.com/Jayleonc/service/pkg/ginx/request"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
-// Service coordinates user operations.
+// Service 协调用户相关的业务操作。
 type Service struct {
 	repo        *Repository
 	validator   *validator.Validate
 	authService *auth.Service
 }
 
-// RegisterInput defines payload for creating a user.
+// RegisterInput 定义注册用户所需的入参结构。
 type RegisterInput struct {
 	Name     string `json:"name" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
@@ -34,13 +34,13 @@ type RegisterInput struct {
 	Phone    string `json:"phone" validate:"omitempty"`
 }
 
-// LoginInput defines payload for logging in.
+// LoginInput 定义用户登录时的入参结构。
 type LoginInput struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
-// UpdateProfileInput defines payload for updating profile information.
+// UpdateProfileInput 定义用户自助更新资料的入参。
 type UpdateProfileInput struct {
 	Name  *string `json:"name" validate:"omitempty"`
 	Phone *string `json:"phone" validate:"omitempty"`
@@ -80,18 +80,18 @@ type ListUsersRequest struct {
 	Email      string             `json:"email"`
 }
 
-// LoginResult captures the outcome of a successful login.
+// LoginResult 描述登录成功后的返回结果。
 type LoginResult struct {
 	Profile Profile
 	Tokens  auth.Tokens
 }
 
-// NewService constructs a Service.
+// NewService 创建 Service 实例。
 func NewService(repo *Repository, validate *validator.Validate, authService *auth.Service) *Service {
 	return &Service{repo: repo, validator: validate, authService: authService}
 }
 
-// Register persists a new user record.
+// Register 持久化新用户。
 func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, error) {
 	if err := s.validator.Struct(input); err != nil {
 		return Profile{}, err
@@ -133,7 +133,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, e
 	return toProfile(*user), nil
 }
 
-// Login validates credentials and issues a new token pair.
+// Login 校验凭证并签发新的令牌对。
 func (s *Service) Login(ctx context.Context, input LoginInput) (LoginResult, error) {
 	if err := s.validator.Struct(input); err != nil {
 		return LoginResult{}, err
@@ -164,7 +164,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (LoginResult, err
 	return LoginResult{Profile: toProfile(*record), Tokens: tokens}, nil
 }
 
-// Profile retrieves the profile information for a user.
+// Profile 查询用户的个人资料。
 func (s *Service) Profile(ctx context.Context, id uuid.UUID) (Profile, error) {
 	record, err := s.repo.Get(ctx, id)
 	if err != nil {
@@ -173,7 +173,7 @@ func (s *Service) Profile(ctx context.Context, id uuid.UUID) (Profile, error) {
 	return toProfile(*record), nil
 }
 
-// UpdateProfile modifies the profile information for a user.
+// UpdateProfile 修改用户个人资料。
 func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, input UpdateProfileInput) (Profile, error) {
 	if err := s.validator.Struct(input); err != nil {
 		return Profile{}, err

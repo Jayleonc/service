@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Metrics collects HTTP request metrics for Prometheus.
+// Metrics 采集 HTTP 请求指标并上报至 Prometheus。
 func Metrics(registry *prometheus.Registry) gin.HandlerFunc {
 	requests := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{

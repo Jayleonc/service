@@ -9,7 +9,7 @@ import (
 	"github.com/Jayleonc/service/pkg/xerr"
 )
 
-// Response defines the standard structure shared by all API responses.
+// Response 定义了 API 响应的通用结构。
 type Response struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -24,12 +24,12 @@ type PageResult[T any] struct {
 	PageSize int   `json:"pageSize"`
 }
 
-// Success writes a successful response with the provided data payload.
+// Success 使用默认 200 状态码返回成功响应。
 func Success(c *gin.Context, data any) {
 	SuccessWithStatus(c, http.StatusOK, data)
 }
 
-// SuccessWithStatus writes a successful response with the supplied HTTP status code.
+// SuccessWithStatus 使用指定的 HTTP 状态码返回成功响应。
 func SuccessWithStatus(c *gin.Context, status int, data any) {
 	c.JSON(status, Response{
 		Code:    0,
@@ -38,7 +38,7 @@ func SuccessWithStatus(c *gin.Context, status int, data any) {
 	})
 }
 
-// SuccessWithMessage writes a successful response with a custom message.
+// SuccessWithMessage 使用自定义文案返回成功响应。
 func SuccessWithMessage(c *gin.Context, message string, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
@@ -47,7 +47,7 @@ func SuccessWithMessage(c *gin.Context, message string, data any) {
 	})
 }
 
-// Error writes an error response leveraging typed business errors when available.
+// Error 根据传入错误类型返回统一的失败响应，并优先使用业务错误信息。
 func Error(c *gin.Context, httpStatus int, err error) {
 	var business *xerr.Error
 	if errors.As(err, &business) {

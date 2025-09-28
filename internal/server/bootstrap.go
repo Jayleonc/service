@@ -10,14 +10,13 @@ import (
 	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
 	"github.com/Jayleonc/service/pkg/database"
-	"github.com/Jayleonc/service/pkg/logger"
-	"github.com/Jayleonc/service/pkg/metrics"
-	"github.com/Jayleonc/service/pkg/telemetry"
+	"github.com/Jayleonc/service/pkg/observe/logger"
+	"github.com/Jayleonc/service/pkg/observe/metrics"
+	"github.com/Jayleonc/service/pkg/observe/telemetry"
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
-// Bootstrap assembles the shared infrastructure, registers every feature and returns
-// a ready-to-run application instance.
+// Bootstrap 负责初始化通用基础设施、注册全部业务模块并返回可运行的应用实例。
 func Bootstrap(features []feature.Entry) (*App, error) {
 	ctx := context.Background()
 
@@ -55,7 +54,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 		return nil, fmt.Errorf("connect redis: %w", err)
 	}
 
-	// ======= 初始化指标检测 =======
+	// ======= 初始化指标采集 =======
 	registry := metrics.InitRegistry()
 
 	// ======= 初始化认证服务 =======
@@ -70,7 +69,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 		return nil, fmt.Errorf("configure auth manager: %w", err)
 	}
 
-	// ======= 初始化指标检测 =======
+	// ======= 初始化链路追踪 =======
 	if _, err := telemetry.Init(ctx, telemetry.Config{
 		ServiceName: cfg.Telemetry.ServiceName,
 		Endpoint:    cfg.Telemetry.Endpoint,

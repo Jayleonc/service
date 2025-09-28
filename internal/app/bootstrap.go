@@ -8,14 +8,14 @@ import (
 	"github.com/Jayleonc/service/internal/user"
 )
 
-// Features enumerates all features that should be initialised at startup.
+// Features 列举了启动时需要初始化的全部业务模块。
 var Features = []feature.Entry{
 	{Name: "auth", Registrar: auth.Register},
 	{Name: "role", Registrar: role.Register},
 	{Name: "user", Registrar: user.Register},
 }
 
-// Bootstrap assembles the shared infrastructure and registers every feature.
+// Bootstrap 负责组装共享基础设施并注册每个业务模块。
 func Bootstrap() (*server.App, error) {
 	return server.Bootstrap(Features)
 }

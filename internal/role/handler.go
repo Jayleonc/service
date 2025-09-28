@@ -12,7 +12,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/database"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
 // Handler 提供角色管理接口，直接使用全局数据库单例。

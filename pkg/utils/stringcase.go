@@ -5,7 +5,7 @@ import (
 	"unicode"
 )
 
-// CamelToSnake converts a camelCase string into snake_case while preserving separators.
+// CamelToSnake 在保留分隔逻辑的前提下，将驼峰命名转换为下划线命名。
 func CamelToSnake(s string) string {
 	if s == "" {
 		return ""

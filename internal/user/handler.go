@@ -8,21 +8,21 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/pkg/request"
-	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/ginx/request"
+	"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
-// Handler exposes user endpoints.
+// Handler 对外提供用户模块的 HTTP 接口。
 type Handler struct {
 	svc *Service
 }
 
-// NewHandler constructs a Handler following the DI-oriented paradigm.
+// NewHandler 依赖注入用户服务后返回处理器。
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// GetRoutes returns the route declarations for the user feature.
+// GetRoutes 声明用户模块所需的路由。
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 	return feature.ModuleRoutes{
 		PublicRoutes: []feature.RouteDefinition{

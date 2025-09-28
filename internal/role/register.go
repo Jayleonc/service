@@ -9,7 +9,7 @@ import (
 	"github.com/Jayleonc/service/pkg/database"
 )
 
-// Register initialises the role feature following the singleton-friendly path.
+// Register 以单例模式初始化角色功能模块。
 func Register(ctx context.Context, deps feature.Dependencies) error {
 	if err := deps.Require("Router"); err != nil {
 		return fmt.Errorf("role feature dependencies: %w", err)

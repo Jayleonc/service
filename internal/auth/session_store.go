@@ -18,12 +18,12 @@ type sessionPayload struct {
 	RefreshToken string   `json:"refreshToken"`
 }
 
-// SessionStore encapsulates Redis interactions for authentication sessions.
+// SessionStore 封装认证会话在 Redis 中的读写操作。
 type SessionStore struct {
 	client *redis.Client
 }
 
-// NewSessionStore constructs a new SessionStore.
+// NewSessionStore 创建 SessionStore 实例。
 func NewSessionStore(client *redis.Client) *SessionStore {
 	return &SessionStore{client: client}
 }
@@ -36,7 +36,7 @@ func (s *SessionStore) refreshKey(token string) string {
 	return fmt.Sprintf("refresh:%s", token)
 }
 
-// Save persists a new session and its refresh token mapping.
+// Save 保存新的会话数据及其刷新令牌映射关系。
 func (s *SessionStore) Save(ctx context.Context, data feature.AuthContext, ttl time.Duration) error {
 	payload := sessionPayload{
 		UserID:       data.UserID.String(),
@@ -57,7 +57,7 @@ func (s *SessionStore) Save(ctx context.Context, data feature.AuthContext, ttl t
 	return err
 }
 
-// Get retrieves a session by its identifier.
+// Get 根据会话 ID 读取对应的会话信息。
 func (s *SessionStore) Get(ctx context.Context, sessionID string) (feature.AuthContext, error) {
 	raw, err := s.client.Get(ctx, s.sessionKey(sessionID)).Bytes()
 	if err != nil {
@@ -85,7 +85,7 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (feature.AuthC
 	}, nil
 }
 
-// GetByRefreshToken locates a session using the refresh token mapping.
+// GetByRefreshToken 通过刷新令牌反查会话信息。
 func (s *SessionStore) GetByRefreshToken(ctx context.Context, refreshToken string) (feature.AuthContext, error) {
 	sessionID, err := s.client.Get(ctx, s.refreshKey(refreshToken)).Result()
 	if err != nil {
@@ -106,7 +106,7 @@ func (s *SessionStore) GetByRefreshToken(ctx context.Context, refreshToken strin
 	return session, nil
 }
 
-// ReplaceRefreshToken rotates the refresh token associated with a session.
+// ReplaceRefreshToken 将会话绑定的刷新令牌替换为新的值。
 func (s *SessionStore) ReplaceRefreshToken(ctx context.Context, data feature.AuthContext, previousToken string, ttl time.Duration) error {
 	payload := sessionPayload{
 		UserID:       data.UserID.String(),
