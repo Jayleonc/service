@@ -58,9 +58,20 @@ Both modules share the same router instance and live side-by-side without leakin
 
 ## Quick Start
 
-1. Install Go 1.22 or newer.
-2. Ensure PostgreSQL is available and export configuration through the `AUTH_` environment variables (defaults point to `localhost:5432`).
-3. Run the service:
+1. Clone this repository and change into the project directory.
+2. Rebrand the module path for your organisation by running the interactive initialiser:
+
+   ```bash
+   make init-project
+   ```
+
+3. Scaffold your first feature module with the guided generator:
+
+   ```bash
+   make new-module
+   ```
+
+4. Run the service:
 
    ```bash
    go run ./cmd/service
