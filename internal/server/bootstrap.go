@@ -3,8 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
+	"os"
 
 	"github.com/Jayleonc/service/internal/module"
 	"github.com/Jayleonc/service/pkg/auth"
@@ -19,8 +18,10 @@ import (
 
 // Bootstrap assembles the shared infrastructure, registers every module and returns
 // a ready-to-run application instance.
-func Bootstrap(ctx context.Context, args []string) (*App, error) {
-	cfg, err := config.Init(ctx, args)
+func Bootstrap() (*App, error) {
+	ctx := context.Background()
+
+	cfg, err := config.Init(ctx, os.Args[1:])
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
@@ -64,12 +65,11 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 		return nil, fmt.Errorf("configure auth manager: %w", err)
 	}
 
-	telemetryProvider, err := telemetry.Init(ctx, telemetry.Config{
+	if _, err := telemetry.Init(ctx, telemetry.Config{
 		ServiceName: cfg.Telemetry.ServiceName,
 		Endpoint:    cfg.Telemetry.Endpoint,
 		Enabled:     cfg.Telemetry.Enabled,
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, fmt.Errorf("setup telemetry: %w", err)
 	}
 
@@ -99,18 +99,5 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 		log.Info("module registered", "module", entry.Name)
 	}
 
-	srv := &http.Server{
-		Addr:              fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler:           router,
-		ReadTimeout:       cfg.Server.ReadTimeout,
-		WriteTimeout:      cfg.Server.WriteTimeout,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-
-	var shutdowns []func(context.Context) error
-	if telemetryProvider != nil {
-		shutdowns = append(shutdowns, telemetryProvider.Shutdown)
-	}
-
-	return NewApp(log, srv, shutdowns...), nil
+	return NewApp(router, cfg, log), nil
 }
