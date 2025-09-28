@@ -12,8 +12,6 @@ import (
 )
 
 var (
-	// ErrInvalidRefreshToken indicates that the provided refresh token is no longer valid.
-	ErrInvalidRefreshToken = errors.New("auth: invalid refresh token")
 	// ErrSessionNotFound is returned when a session cannot be located in the store.
 	ErrSessionNotFound = errors.New("auth: session not found")
 )

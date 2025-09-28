@@ -42,17 +42,17 @@ type refreshResponse struct {
 func (h *Handler) refresh(c *gin.Context) {
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 1001, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrRefreshInvalidPayload)
 		return
 	}
 
 	tokens, err := h.svc.Refresh(c.Request.Context(), req.RefreshToken)
 	if err != nil {
 		if errors.Is(err, ErrInvalidRefreshToken) {
-			response.Error(c, http.StatusUnauthorized, 1002, "invalid refresh token")
+			response.Error(c, http.StatusUnauthorized, ErrInvalidRefreshToken)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, 1003, "failed to refresh token")
+		response.Error(c, http.StatusInternalServerError, ErrRefreshFailed)
 		return
 	}
 

@@ -27,9 +27,9 @@ func RBAC(requiredRoles ...string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		session, ok := feature.AuthContextFromContext(c)
+		session, ok := feature.GetAuthContext(c)
 		if !ok {
-			response.Error(c, http.StatusUnauthorized, 2051, "missing session")
+			response.Error(c, http.StatusUnauthorized, ErrMissingSession)
 			c.Abort()
 			return
 		}
@@ -40,7 +40,7 @@ func RBAC(requiredRoles ...string) gin.HandlerFunc {
 		}
 
 		if !hasAnyRole(session.Roles, normalized) {
-			response.Error(c, http.StatusForbidden, 2052, "insufficient permissions")
+			response.Error(c, http.StatusForbidden, ErrInsufficientPrivilege)
 			c.Abort()
 			return
 		}

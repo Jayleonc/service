@@ -10,14 +10,8 @@ import (
 
 // Register wires the user feature using the structured/DI development path.
 func Register(ctx context.Context, deps feature.Dependencies) error {
-	if deps.DB == nil {
-		return fmt.Errorf("user feature requires a database instance")
-	}
-	if deps.Router == nil {
-		return fmt.Errorf("user feature requires a route registrar")
-	}
-	if deps.Validator == nil {
-		return fmt.Errorf("user feature requires a validator instance")
+	if err := deps.Require("DB", "Router", "Validator"); err != nil {
+		return fmt.Errorf("user feature dependencies: %w", err)
 	}
 
 	authService := auth.DefaultService()

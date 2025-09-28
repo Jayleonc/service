@@ -56,30 +56,30 @@ type DeleteRoleRequest struct {
 func (h *Handler) create(c *gin.Context) {
 	var req CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 4001, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrCreateInvalidPayload)
 		return
 	}
 
 	db, err := defaultDB()
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 4003, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrCreateDatabaseUnavailable)
 		return
 	}
 
 	name := normalizeRoleName(req.Name)
 	if name == "" {
-		response.Error(c, http.StatusBadRequest, 4004, "role name is required")
+		response.Error(c, http.StatusBadRequest, ErrRoleNameRequired)
 		return
 	}
 
 	role := &Role{
-		ID:          uuid.New(),
+		ID:          uuid.Must(uuid.NewV7()),
 		Name:        name,
 		Description: strings.TrimSpace(req.Description),
 	}
 
 	if err := db.WithContext(c.Request.Context()).Create(role).Error; err != nil {
-		response.Error(c, http.StatusBadRequest, 4005, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrCreateFailed)
 		return
 	}
 
@@ -89,36 +89,36 @@ func (h *Handler) create(c *gin.Context) {
 func (h *Handler) update(c *gin.Context) {
 	var req UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 4011, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrUpdateInvalidPayload)
 		return
 	}
 
 	roleID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 4012, "invalid role id")
+		response.Error(c, http.StatusBadRequest, ErrInvalidRoleID)
 		return
 	}
 
 	db, err := defaultDB()
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 4014, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrUpdateDatabaseUnavailable)
 		return
 	}
 
 	record, err := findRoleByID(c.Request.Context(), db, roleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, 4015, "role not found")
+			response.Error(c, http.StatusNotFound, ErrRoleNotFound)
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, 4016, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrLoadRoleFailed)
 		return
 	}
 
 	if req.Name != nil {
 		normalized := normalizeRoleName(*req.Name)
 		if normalized == "" {
-			response.Error(c, http.StatusBadRequest, 4017, "role name is required")
+			response.Error(c, http.StatusBadRequest, ErrUpdateRoleNameEmpty)
 			return
 		}
 		record.Name = normalized
@@ -128,7 +128,7 @@ func (h *Handler) update(c *gin.Context) {
 	}
 
 	if err := db.WithContext(c.Request.Context()).Save(record).Error; err != nil {
-		response.Error(c, http.StatusBadRequest, 4018, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrUpdateFailed)
 		return
 	}
 
@@ -138,24 +138,24 @@ func (h *Handler) update(c *gin.Context) {
 func (h *Handler) delete(c *gin.Context) {
 	var req DeleteRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 4021, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidPayload)
 		return
 	}
 
 	roleID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 4022, "invalid role id")
+		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidRoleID)
 		return
 	}
 
 	db, err := defaultDB()
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 4024, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrDeleteDatabaseUnavailable)
 		return
 	}
 
 	if err := db.WithContext(c.Request.Context()).Delete(&Role{}, "id = ?", roleID).Error; err != nil {
-		response.Error(c, http.StatusBadRequest, 4023, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrDeleteFailed)
 		return
 	}
 
@@ -165,13 +165,13 @@ func (h *Handler) delete(c *gin.Context) {
 func (h *Handler) list(c *gin.Context) {
 	db, err := defaultDB()
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 4032, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrListDatabaseUnavailable)
 		return
 	}
 
 	var roles []Role
 	if err := db.WithContext(c.Request.Context()).Order("date_created ASC").Find(&roles).Error; err != nil {
-		response.Error(c, http.StatusInternalServerError, 4033, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrListFailed)
 		return
 	}
 
@@ -204,7 +204,7 @@ func EnsureDefaultRoles(ctx context.Context, defaults map[string]string) error {
 		err := db.WithContext(ctx).First(&existing, "name = ?", normalized).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				role := &Role{ID: uuid.New(), Name: normalized, Description: desc}
+				role := &Role{ID: uuid.Must(uuid.NewV7()), Name: normalized, Description: desc}
 				if err := db.WithContext(ctx).Create(role).Error; err != nil {
 					return err
 				}
