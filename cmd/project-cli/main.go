@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
-	"flag"
 	"fmt"
 	"go/format"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,50 +25,185 @@ var (
 )
 
 func main() {
-	var (
-		nameArg = flag.String("name", "", "module name (lowercase, underscores allowed)")
-		typeArg = flag.String("type", "simple", "module type: simple or structured")
-		rootArg = flag.String("root", ".", "project root directory")
-	)
-
-	flag.Parse()
-
-	name := strings.TrimSpace(*nameArg)
-	moduleType := strings.ToLower(strings.TrimSpace(*typeArg))
-	root := strings.TrimSpace(*rootArg)
-
-	if name == "" {
-		exitWithError(errors.New("module name is required"))
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(1)
 	}
 
-	name = strings.ToLower(name)
-	if !moduleNamePattern.MatchString(name) {
-		exitWithError(fmt.Errorf("module name %q is invalid: only lowercase letters, digits and underscores are allowed", name))
+	cmd := os.Args[1]
+	root := "."
+
+	var err error
+	switch cmd {
+	case "init":
+		err = runInit(root)
+	case "new-module":
+		err = runNewModule(root)
+	case "help", "-h", "--help":
+		printUsage()
+		return
+	default:
+		fmt.Fprintf(os.Stderr, "project-cli: unknown command %q\n\n", cmd)
+		printUsage()
+		os.Exit(1)
 	}
 
-	if moduleType != "simple" && moduleType != "structured" {
-		exitWithError(fmt.Errorf("module type %q is invalid: must be simple or structured", moduleType))
-	}
-
-	if root == "" {
-		root = "."
-	}
-
-	if _, exists := reservedModuleName[name]; exists {
-		exitWithError(fmt.Errorf("module name %q is reserved", name))
-	}
-
-	if err := run(root, name, moduleType); err != nil {
+	if err != nil {
 		exitWithError(err)
 	}
 }
 
+func printUsage() {
+	fmt.Println("Usage: project-cli <command>")
+	fmt.Println()
+	fmt.Println("Available commands:")
+	fmt.Println("  init         Initialise the project with a new module path")
+	fmt.Println("  new-module   Scaffold a new module interactively")
+}
+
+func runInit(root string) error {
+	modulePath, err := goModulePath(root)
+	if err != nil {
+		return fmt.Errorf("determine current module path: %w", err)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("Current module path: %s\n", modulePath)
+
+	newPath, err := promptForModulePath(reader, modulePath)
+	if err != nil {
+		return err
+	}
+
+	if newPath == modulePath {
+		fmt.Println("Module path unchanged; nothing to do.")
+		return nil
+	}
+
+	fmt.Println("Updating project files...")
+	updated, err := replaceModulePath(root, modulePath, newPath)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Updated %d files.\n", updated)
+	fmt.Println("Project initialisation complete. You can now comment out or remove the init-project target in the Makefile to prevent re-running it.")
+	return nil
+}
+
+func promptForModulePath(reader *bufio.Reader, current string) (string, error) {
+	for {
+		fmt.Print("Enter the new module path: ")
+		input, err := readLine(reader)
+		if err != nil {
+			return "", err
+		}
+
+		if input == "" {
+			fmt.Println("Module path cannot be empty. Please provide a value like github.com/company/project.")
+			continue
+		}
+
+		if input == current {
+			return input, nil
+		}
+
+		return input, nil
+	}
+}
+
+func runNewModule(root string) error {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("=== New Module Generator ===")
+
+	name, err := promptForModuleName(reader)
+	if err != nil {
+		return err
+	}
+
+	moduleType, err := promptForModuleType(reader)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Creating %s module %q...\n", moduleType, name)
+	if err := createModule(root, name, moduleType); err != nil {
+		return err
+	}
+
+	fmt.Printf("Module %q created successfully.\n", name)
+	return nil
+}
+
+func promptForModuleName(reader *bufio.Reader) (string, error) {
+	for {
+		fmt.Print("Enter the new module name (e.g. \"billing\", \"user_profile\"): ")
+		input, err := readLine(reader)
+		if err != nil {
+			return "", err
+		}
+
+		if input == "" {
+			fmt.Println("Module name is required.")
+			continue
+		}
+
+		name := strings.ToLower(input)
+		if !moduleNamePattern.MatchString(name) {
+			fmt.Println("Invalid module name: only lowercase letters, digits, and underscores are allowed, and it must start with a letter.")
+			continue
+		}
+
+		if _, exists := reservedModuleName[name]; exists {
+			fmt.Printf("Module name %q is reserved. Please choose another name.\n", name)
+			continue
+		}
+
+		return name, nil
+	}
+}
+
+func promptForModuleType(reader *bufio.Reader) (string, error) {
+	for {
+		fmt.Print("Select module type ([1] Simple, [2] Structured): ")
+		input, err := readLine(reader)
+		if err != nil {
+			return "", err
+		}
+
+		choice := strings.ToLower(input)
+		switch choice {
+		case "", "1", "simple":
+			return "simple", nil
+		case "2", "structured":
+			return "structured", nil
+		default:
+			fmt.Println("Please choose 1 for Simple or 2 for Structured.")
+		}
+	}
+}
+
+func readLine(reader *bufio.Reader) (string, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			if len(line) == 0 {
+				return "", err
+			}
+		} else {
+			return "", err
+		}
+	}
+
+	return strings.TrimSpace(line), nil
+}
+
 func exitWithError(err error) {
-	fmt.Fprintf(os.Stderr, "newmodule: %v\n", err)
+	fmt.Fprintf(os.Stderr, "project-cli: %v\n", err)
 	os.Exit(1)
 }
 
-func run(root, name, moduleType string) error {
+func createModule(root, name, moduleType string) error {
 	moduleDir := filepath.Join(root, "internal", name)
 	if _, err := os.Stat(moduleDir); err == nil {
 		return fmt.Errorf("module directory %s already exists", moduleDir)
@@ -188,6 +325,76 @@ func renderGoTemplate(tmpl string, data templateData) ([]byte, error) {
 	}
 
 	return formatted, nil
+}
+
+func replaceModulePath(root, oldPath, newPath string) (int, error) {
+	var updatedFiles int
+	skipDirs := map[string]struct{}{
+		".git":         {},
+		"vendor":       {},
+		"bin":          {},
+		"tmp":          {},
+		"node_modules": {},
+	}
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			if path != root {
+				if _, skip := skipDirs[d.Name()]; skip {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		if len(data) == 0 || isBinary(data) {
+			return nil
+		}
+
+		if !bytes.Contains(data, []byte(oldPath)) {
+			return nil
+		}
+
+		replaced := bytes.ReplaceAll(data, []byte(oldPath), []byte(newPath))
+		if bytes.Equal(data, replaced) {
+			return nil
+		}
+
+		info, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		if err := os.WriteFile(path, replaced, info.Mode()); err != nil {
+			return err
+		}
+
+		updatedFiles++
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return updatedFiles, nil
+}
+
+func isBinary(data []byte) bool {
+	for _, b := range data {
+		if b == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func goModulePath(root string) (string, error) {

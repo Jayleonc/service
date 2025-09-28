@@ -403,16 +403,11 @@ lint:
 	CGO_ENABLED=0 go vet ./...
 	staticcheck -checks=all ./...
 
+init-project:
+	@go run ./cmd/project-cli init
+
 new-module:
-	@if [ -z "$(name)" ]; then \
-		echo "usage: make new-module name=<module> type=<simple|structured>"; \
-		exit 1; \
-	fi
-	@if [ -z "$(type)" ]; then \
-		echo "usage: make new-module name=<module> type=<simple|structured>"; \
-		exit 1; \
-	fi
-	go run ./cmd/newmodule -name=$(name) -type=$(type)
+	@go run ./cmd/project-cli new-module
 
 vuln-check:
 	govulncheck ./...

@@ -95,11 +95,10 @@ There is no explicit wiring layer: the handler reaches for `database.Default()` 
 
 ## Scaffolding new modules
 
-Use the `make new-module` automation to eliminate repetitive setup:
+Use the `make new-module` automation to eliminate repetitive setup. The command launches an interactive wizard, so no flags are required:
 
 ```bash
-make new-module name=inventory type=structured
-make new-module name=audit type=simple
+make new-module
 ```
 
 The generator will:
