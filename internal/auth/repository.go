@@ -1,4 +1,4 @@
-package repository
+package auth
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// User represents the persisted user model.
-type User struct {
+// userRecord represents the persisted user model.
+type userRecord struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name         string
 	Email        string `gorm:"uniqueIndex"`
@@ -21,7 +21,7 @@ type User struct {
 }
 
 // BeforeCreate hook to set defaults.
-func (u *User) BeforeCreate(tx *gorm.DB) error {
+func (u *userRecord) BeforeCreate(_ *gorm.DB) error {
 	if u.ID == uuid.Nil {
 		u.ID = uuid.New()
 	}
@@ -34,34 +34,34 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 }
 
 // BeforeUpdate ensures DateUpdated is refreshed.
-func (u *User) BeforeUpdate(tx *gorm.DB) error {
+func (u *userRecord) BeforeUpdate(_ *gorm.DB) error {
 	u.DateUpdated = time.Now().UTC()
 	return nil
 }
 
-// UserRepository provides database access for users.
-type UserRepository struct {
+// Repository provides database access for users.
+type Repository struct {
 	db *gorm.DB
 }
 
-// NewUserRepository constructs a UserRepository.
-func NewUserRepository(db *gorm.DB) *UserRepository {
-	return &UserRepository{db: db}
+// NewRepository constructs a Repository.
+func NewRepository(db *gorm.DB) *Repository {
+	return &Repository{db: db}
 }
 
 // Create persists a new user.
-func (r *UserRepository) Create(ctx context.Context, user *User) error {
+func (r *Repository) Create(ctx context.Context, user *userRecord) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }
 
 // Update updates an existing user record.
-func (r *UserRepository) Update(ctx context.Context, user *User) error {
+func (r *Repository) Update(ctx context.Context, user *userRecord) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
 // Delete removes a user by ID.
-func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	res := r.db.WithContext(ctx).Delete(&User{}, "id = ?", id)
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+	res := r.db.WithContext(ctx).Delete(&userRecord{}, "id = ?", id)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -72,8 +72,8 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // Get retrieves a user by ID.
-func (r *UserRepository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
-	var user User
+func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*userRecord, error) {
+	var user userRecord
 	if err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
@@ -81,8 +81,8 @@ func (r *UserRepository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 }
 
 // GetByEmail retrieves a user by email.
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
-	var user User
+func (r *Repository) GetByEmail(ctx context.Context, email string) (*userRecord, error) {
+	var user userRecord
 	if err := r.db.WithContext(ctx).First(&user, "email = ?", email).Error; err != nil {
 		return nil, err
 	}
@@ -90,8 +90,8 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*User, e
 }
 
 // List returns all users.
-func (r *UserRepository) List(ctx context.Context) ([]User, error) {
-	var users []User
+func (r *Repository) List(ctx context.Context) ([]userRecord, error) {
+	var users []userRecord
 	if err := r.db.WithContext(ctx).Order("date_created ASC").Find(&users).Error; err != nil {
 		return nil, err
 	}
@@ -99,15 +99,15 @@ func (r *UserRepository) List(ctx context.Context) ([]User, error) {
 }
 
 // Migrate performs the schema migration for user repository.
-func (r *UserRepository) Migrate(ctx context.Context) error {
-	return r.db.WithContext(ctx).AutoMigrate(&User{})
+func (r *Repository) Migrate(ctx context.Context) error {
+	return r.db.WithContext(ctx).AutoMigrate(&userRecord{})
 }
 
 // ErrDuplicateEmail is returned when an email already exists.
-var ErrDuplicateEmail = errors.New("repository: duplicate email")
+var ErrDuplicateEmail = errors.New("auth: repository: duplicate email")
 
-// HandleErrors translate common database errors to domain errors.
-func HandleErrors(err error) error {
+// handleErrors translate common database errors to domain errors.
+func handleErrors(err error) error {
 	if err == nil {
 		return nil
 	}

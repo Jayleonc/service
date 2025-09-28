@@ -1,4 +1,4 @@
-package handler
+package server
 
 import (
 	"log/slog"
@@ -9,27 +9,25 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
-	"github.com/Jayleonc/service/internal/handler/v1"
 	"github.com/Jayleonc/service/internal/middleware"
-	"github.com/Jayleonc/service/internal/service"
 	"github.com/Jayleonc/service/pkg/auth"
 )
 
-// RouterConfig contains dependencies for building the HTTP router.
+// RouterConfig defines the common HTTP middleware configuration shared by all modules.
 type RouterConfig struct {
 	Logger           *slog.Logger
 	Auth             *auth.Manager
-	UserService      *service.UserService
 	Registry         *prometheus.Registry
 	TelemetryEnabled bool
 	TelemetryName    string
 }
 
-// NewRouter constructs a fully configured gin.Engine.
-func NewRouter(cfg RouterConfig) *gin.Engine {
+// NewRouter constructs the base Gin engine and returns both the engine and the
+// authenticated "/v1" API group used by modules.
+func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 	gin.SetMode(gin.ReleaseMode)
-	r := gin.New()
 
+	r := gin.New()
 	r.Use(middleware.InjectLogger(cfg.Logger))
 	r.Use(middleware.Recovery())
 	r.Use(middleware.Logging())
@@ -52,8 +50,5 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 		api.Use(middleware.Authenticated(cfg.Auth))
 	}
 
-	userHandler := v1.NewUserHandler(cfg.UserService)
-	userHandler.RegisterRoutes(api)
-
-	return r
+	return r, api
 }
