@@ -14,6 +14,7 @@ import (
 	"github.com/Jayleonc/service/pkg/logger"
 	"github.com/Jayleonc/service/pkg/metrics"
 	"github.com/Jayleonc/service/pkg/telemetry"
+	"github.com/Jayleonc/service/pkg/validation"
 )
 
 // Bootstrap assembles the shared infrastructure, registers every module and returns
@@ -80,14 +81,15 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 	})
 
 	deps := module.Dependencies{
-		Logger:   log,
-		DB:       db,
-		Router:   router,
-		API:      api,
-		Auth:     authManager,
-		Registry: registry,
-		Config:   cfg,
-		Cache:    cacheClient,
+		Logger:    log,
+		DB:        db,
+		Router:    router,
+		API:       api,
+		Auth:      authManager,
+		Registry:  registry,
+		Config:    cfg,
+		Cache:     cacheClient,
+		Validator: validation.Default(),
 	}
 
 	for _, entry := range Modules {

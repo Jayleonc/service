@@ -16,6 +16,9 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 	if deps.API == nil {
 		return fmt.Errorf("user module requires an API router group")
 	}
+	if deps.Validator == nil {
+		return fmt.Errorf("user module requires a validator instance")
+	}
 
 	authService := auth.DefaultService()
 	if authService == nil {
@@ -27,7 +30,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	svc := NewService(repo, authService)
+	svc := NewService(repo, deps.Validator, authService)
 	handler := NewHandler(svc, authService)
 	handler.RegisterRoutes(deps.API)
 

@@ -2,10 +2,12 @@ package database
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
 
+	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -38,6 +40,9 @@ func New(cfg Config) (*gorm.DB, error) {
 	case "postgres", "postgresql":
 		dsn := buildPostgresDSN(cfg)
 		return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	case "mysql":
+		dsn := buildMySQLDSN(cfg)
+		return gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	default:
 		return nil, fmt.Errorf("database: unsupported driver %q", cfg.Driver)
 	}
@@ -80,6 +85,72 @@ func buildPostgresDSN(cfg Config) string {
 	}
 
 	return strings.Join(parts, " ")
+}
+
+func buildMySQLDSN(cfg Config) string {
+	user := strings.TrimSpace(cfg.User)
+	pass := strings.TrimSpace(cfg.Password)
+	host := strings.TrimSpace(cfg.Host)
+	dbName := strings.TrimSpace(cfg.Database)
+
+	var credentials string
+	switch {
+	case user != "" && pass != "":
+		credentials = fmt.Sprintf("%s:%s", user, pass)
+	case user != "":
+		credentials = user
+	}
+
+	address := host
+	if cfg.Port != 0 {
+		if address != "" {
+			address = fmt.Sprintf("%s:%d", address, cfg.Port)
+		} else {
+			address = fmt.Sprintf(":%d", cfg.Port)
+		}
+	}
+
+	network := ""
+	if address != "" {
+		network = fmt.Sprintf("tcp(%s)", address)
+	}
+
+	if dbName == "" {
+		dbName = "mysql"
+	}
+
+	params := url.Values{}
+	for k, v := range cfg.Params {
+		key := strings.TrimSpace(k)
+		value := strings.TrimSpace(v)
+		if key == "" || value == "" {
+			continue
+		}
+		params.Set(key, value)
+	}
+	if _, ok := params["parseTime"]; !ok {
+		params.Set("parseTime", "true")
+	}
+	if _, ok := params["loc"]; !ok {
+		params.Set("loc", "Local")
+	}
+
+	query := params.Encode()
+	suffix := ""
+	if query != "" {
+		suffix = "?" + query
+	}
+
+	switch {
+	case credentials != "" && network != "":
+		return fmt.Sprintf("%s@%s/%s%s", credentials, network, dbName, suffix)
+	case credentials != "":
+		return fmt.Sprintf("%s@/%s%s", credentials, dbName, suffix)
+	case network != "":
+		return fmt.Sprintf("%s/%s%s", network, dbName, suffix)
+	default:
+		return fmt.Sprintf("/%s%s", dbName, suffix)
+	}
 }
 
 // Init constructs a database connection and records it as the global instance.

@@ -2,6 +2,7 @@ package user
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,7 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	authenticated.Use(middleware.Authenticated(h.authSvc))
 	authenticated.GET("/me", h.me)
 	authenticated.PUT("/me", h.updateMe)
+	authenticated.PUT("/:id/roles", h.updateRoles)
 }
 
 type registerRequest struct {
@@ -71,6 +73,10 @@ type profileResponse struct {
 type updateProfileRequest struct {
 	Name  *string `json:"name" binding:"omitempty"`
 	Phone *string `json:"phone" binding:"omitempty"`
+}
+
+type updateRolesRequest struct {
+	Roles []string `json:"roles" binding:"required,min=1,dive,required"`
 }
 
 func (h *Handler) register(c *gin.Context) {
@@ -170,6 +176,44 @@ func (h *Handler) updateMe(c *gin.Context) {
 	response.Success(c, toProfileResponse(profile))
 }
 
+func (h *Handler) updateRoles(c *gin.Context) {
+	session, ok := auth.SessionFromContext(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, 3041, "missing session")
+		return
+	}
+
+	if !hasRole(session.Roles, "admin") {
+		response.Error(c, http.StatusForbidden, 3042, "insufficient permissions")
+		return
+	}
+
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3043, "invalid user id")
+		return
+	}
+
+	var req updateRolesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 3044, "invalid request payload")
+		return
+	}
+
+	profile, err := h.svc.UpdateRoles(c.Request.Context(), userID, req.Roles)
+	if err != nil {
+		status := http.StatusBadRequest
+		code := 3045
+		if err == ErrRolesRequired {
+			code = 3046
+		}
+		response.Error(c, status, code, err.Error())
+		return
+	}
+
+	response.Success(c, toProfileResponse(profile))
+}
+
 func toProfileResponse(profile Profile) profileResponse {
 	return profileResponse{
 		ID:          profile.ID,
@@ -180,4 +224,13 @@ func toProfileResponse(profile Profile) profileResponse {
 		DateCreated: profile.DateCreated.Format(time.RFC3339),
 		DateUpdated: profile.DateUpdated.Format(time.RFC3339),
 	}
+}
+
+func hasRole(roles []string, target string) bool {
+	for _, role := range roles {
+		if strings.EqualFold(role, target) {
+			return true
+		}
+	}
+	return false
 }
