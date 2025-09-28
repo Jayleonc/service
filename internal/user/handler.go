@@ -6,8 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/server"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/request"
 	"github.com/Jayleonc/service/pkg/response"
 )
@@ -22,18 +21,18 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// GetRoutes returns the route declarations for the user module.
-func (h *Handler) GetRoutes() server.ModuleRoutes {
-	return server.ModuleRoutes{
-		PublicRoutes: []server.RouteDefinition{
+// GetRoutes returns the route declarations for the user feature.
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+	return feature.ModuleRoutes{
+		PublicRoutes: []feature.RouteDefinition{
 			{Path: "/users/register", Handler: h.register},
 			{Path: "/users/login", Handler: h.login},
 		},
-		AuthenticatedRoutes: []server.RouteDefinition{
+		AuthenticatedRoutes: []feature.RouteDefinition{
 			{Path: "/users/me/get", Handler: h.me},
 			{Path: "/users/me/update", Handler: h.updateMe},
 		},
-		AdminRoutes: []server.RouteDefinition{
+		AdminRoutes: []feature.RouteDefinition{
 			{Path: "/users/create", Handler: h.create},
 			{Path: "/users/update", Handler: h.update},
 			{Path: "/users/delete", Handler: h.delete},
@@ -92,7 +91,7 @@ func (h *Handler) login(c *gin.Context) {
 }
 
 func (h *Handler) me(c *gin.Context) {
-	session, ok := auth.SessionFromContext(c)
+	session, ok := feature.SessionFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3021, "missing session")
 		return
@@ -108,7 +107,7 @@ func (h *Handler) me(c *gin.Context) {
 }
 
 func (h *Handler) updateMe(c *gin.Context) {
-	session, ok := auth.SessionFromContext(c)
+	session, ok := feature.SessionFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3031, "missing session")
 		return

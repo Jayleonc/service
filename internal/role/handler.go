@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/Jayleonc/service/internal/server"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/response"
 )
 
@@ -20,10 +20,10 @@ func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
 
-// GetRoutes 返回角色模块的路由定义
-func (h *Handler) GetRoutes() server.ModuleRoutes {
-	return server.ModuleRoutes{
-		AdminRoutes: []server.RouteDefinition{
+// GetRoutes 返回角色功能的路由定义
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+	return feature.ModuleRoutes{
+		AdminRoutes: []feature.RouteDefinition{
 			{Path: "/roles/create", Handler: h.create},
 			{Path: "/roles/update", Handler: h.update},
 			{Path: "/roles/delete", Handler: h.delete},

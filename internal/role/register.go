@@ -5,26 +5,25 @@ import (
 	"fmt"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/module"
-	"github.com/Jayleonc/service/internal/server"
+	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/constant"
 )
 
-// Register initialises the role module following the singleton-friendly path.
-func Register(ctx context.Context, deps module.Dependencies) error {
+// Register initialises the role feature following the singleton-friendly path.
+func Register(ctx context.Context, deps feature.Dependencies) error {
 	if deps.DB == nil {
-		return fmt.Errorf("role module requires a database instance")
+		return fmt.Errorf("role feature requires a database instance")
 	}
-	if deps.API == nil {
-		return fmt.Errorf("role module requires an API router group")
+	if deps.Router == nil {
+		return fmt.Errorf("role feature requires a route registrar")
 	}
 	if deps.Validator == nil {
-		return fmt.Errorf("role module requires a validator instance")
+		return fmt.Errorf("role feature requires a validator instance")
 	}
 
 	authService := auth.DefaultService()
 	if authService == nil {
-		return fmt.Errorf("role module requires the auth service to be initialised")
+		return fmt.Errorf("role feature requires the auth service to be initialised")
 	}
 
 	repo := NewRepository(deps.DB)
@@ -41,10 +40,10 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 	}
 
 	handler := NewHandler(svc)
-	server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
+	deps.Router.RegisterModule("", handler.GetRoutes())
 
 	if deps.Logger != nil {
-		deps.Logger.Info("role module initialised", "pattern", "singleton")
+		deps.Logger.Info("role feature initialised", "pattern", "singleton")
 	}
 
 	return nil

@@ -8,20 +8,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/Jayleonc/service/internal/feature"
 )
 
 type sessionPayload struct {
 	UserID       string   `json:"user_id"`
 	Roles        []string `json:"roles"`
 	RefreshToken string   `json:"refresh_token"`
-}
-
-// SessionData captures the authenticated user context persisted in Redis.
-type SessionData struct {
-	SessionID    string
-	UserID       uuid.UUID
-	Roles        []string
-	RefreshToken string
 }
 
 // SessionStore encapsulates Redis interactions for authentication sessions.
@@ -43,7 +37,7 @@ func (s *SessionStore) refreshKey(token string) string {
 }
 
 // Save persists a new session and its refresh token mapping.
-func (s *SessionStore) Save(ctx context.Context, data SessionData, ttl time.Duration) error {
+func (s *SessionStore) Save(ctx context.Context, data feature.SessionData, ttl time.Duration) error {
 	payload := sessionPayload{
 		UserID:       data.UserID.String(),
 		Roles:        data.Roles,
@@ -64,26 +58,26 @@ func (s *SessionStore) Save(ctx context.Context, data SessionData, ttl time.Dura
 }
 
 // Get retrieves a session by its identifier.
-func (s *SessionStore) Get(ctx context.Context, sessionID string) (SessionData, error) {
+func (s *SessionStore) Get(ctx context.Context, sessionID string) (feature.SessionData, error) {
 	raw, err := s.client.Get(ctx, s.sessionKey(sessionID)).Bytes()
 	if err != nil {
 		if err == redis.Nil {
-			return SessionData{}, ErrSessionNotFound
+			return feature.SessionData{}, ErrSessionNotFound
 		}
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	var payload sessionPayload
 	if err := json.Unmarshal(raw, &payload); err != nil {
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	userID, err := uuid.Parse(payload.UserID)
 	if err != nil {
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
-	return SessionData{
+	return feature.SessionData{
 		SessionID:    sessionID,
 		UserID:       userID,
 		Roles:        payload.Roles,
@@ -92,28 +86,28 @@ func (s *SessionStore) Get(ctx context.Context, sessionID string) (SessionData, 
 }
 
 // GetByRefreshToken locates a session using the refresh token mapping.
-func (s *SessionStore) GetByRefreshToken(ctx context.Context, refreshToken string) (SessionData, error) {
+func (s *SessionStore) GetByRefreshToken(ctx context.Context, refreshToken string) (feature.SessionData, error) {
 	sessionID, err := s.client.Get(ctx, s.refreshKey(refreshToken)).Result()
 	if err != nil {
 		if err == redis.Nil {
-			return SessionData{}, ErrInvalidRefreshToken
+			return feature.SessionData{}, ErrInvalidRefreshToken
 		}
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	session, err := s.Get(ctx, sessionID)
 	if err != nil {
 		if err == ErrSessionNotFound {
-			return SessionData{}, ErrInvalidRefreshToken
+			return feature.SessionData{}, ErrInvalidRefreshToken
 		}
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	return session, nil
 }
 
 // ReplaceRefreshToken rotates the refresh token associated with a session.
-func (s *SessionStore) ReplaceRefreshToken(ctx context.Context, data SessionData, previousToken string, ttl time.Duration) error {
+func (s *SessionStore) ReplaceRefreshToken(ctx context.Context, data feature.SessionData, previousToken string, ttl time.Duration) error {
 	payload := sessionPayload{
 		UserID:       data.UserID.String(),
 		Roles:        data.Roles,

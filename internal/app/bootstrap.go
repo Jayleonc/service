@@ -1,21 +1,21 @@
 package app
 
 import (
-	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/module"
-	"github.com/Jayleonc/service/internal/role"
-	"github.com/Jayleonc/service/internal/server"
-	"github.com/Jayleonc/service/internal/user"
+        "github.com/Jayleonc/service/internal/auth"
+        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/internal/role"
+        "github.com/Jayleonc/service/internal/server"
+        "github.com/Jayleonc/service/internal/user"
 )
 
-// Modules enumerates all modules that should be initialised at startup.
-var Modules = []module.Entry{
-	{Name: "auth", Registrar: auth.Register},
-	{Name: "role", Registrar: role.Register},
-	{Name: "user", Registrar: user.Register},
+// Features enumerates all features that should be initialised at startup.
+var Features = []feature.Entry{
+        {Name: "auth", Registrar: auth.Register},
+        {Name: "role", Registrar: role.Register},
+        {Name: "user", Registrar: user.Register},
 }
 
-// Bootstrap assembles the shared infrastructure and registers every module.
+// Bootstrap assembles the shared infrastructure and registers every feature.
 func Bootstrap() (*server.App, error) {
-	return server.Bootstrap(Modules)
+        return server.Bootstrap(Features)
 }

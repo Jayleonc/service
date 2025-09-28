@@ -1,12 +1,18 @@
-package auth
+package feature
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+)
 
 const contextSessionKey = "auth.session"
 
-// ContextSessionKey exposes the key used to store session data in Gin's context.
-func ContextSessionKey() string {
-	return contextSessionKey
+// SessionData captures the authenticated user context shared between features.
+type SessionData struct {
+	SessionID    string
+	UserID       uuid.UUID
+	Roles        []string
+	RefreshToken string
 }
 
 // SetContextSession stores the authenticated session data into the Gin context.

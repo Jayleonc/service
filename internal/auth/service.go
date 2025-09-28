@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Jayleonc/service/internal/feature"
 	authpkg "github.com/Jayleonc/service/pkg/auth"
 )
 
@@ -50,7 +51,7 @@ func (s *Service) IssueTokens(ctx context.Context, userID uuid.UUID, roles []str
 		return Tokens{}, err
 	}
 
-	session := SessionData{
+	session := feature.SessionData{
 		SessionID:    sessionID,
 		UserID:       userID,
 		Roles:        roles,
@@ -95,15 +96,15 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 }
 
 // Validate extracts the session from the access token.
-func (s *Service) Validate(ctx context.Context, token string) (SessionData, error) {
+func (s *Service) Validate(ctx context.Context, token string) (feature.SessionData, error) {
 	claims, err := s.manager.ParseToken(token)
 	if err != nil {
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	session, err := s.store.Get(ctx, claims.SessionID)
 	if err != nil {
-		return SessionData{}, err
+		return feature.SessionData{}, err
 	}
 
 	return session, nil
