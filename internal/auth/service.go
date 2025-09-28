@@ -1,4 +1,4 @@
-package service
+package auth
 
 import (
 	"context"
@@ -6,48 +6,46 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-
-	"github.com/Jayleonc/service/internal/repository"
 )
 
 // User represents a domain user.
 type User struct {
-	ID           uuid.UUID
-	Name         string
-	Email        string
-	Roles        []string
-	PasswordHash string
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	Roles        []string  `json:"roles"`
+	PasswordHash string    `json:"password_hash"`
 }
 
 // CreateUserInput defines payload for creating a user.
 type CreateUserInput struct {
-	Name         string   `validate:"required"`
-	Email        string   `validate:"required,email"`
-	Roles        []string `validate:"required"`
-	PasswordHash string   `validate:"required"`
+	Name         string   `json:"name" validate:"required"`
+	Email        string   `json:"email" validate:"required,email"`
+	Roles        []string `json:"roles" validate:"required"`
+	PasswordHash string   `json:"password_hash" validate:"required"`
 }
 
 // UpdateUserInput defines payload for updating a user.
 type UpdateUserInput struct {
-	Name         *string   `validate:"omitempty"`
-	Email        *string   `validate:"omitempty,email"`
-	Roles        *[]string `validate:"omitempty"`
-	PasswordHash *string   `validate:"omitempty"`
+	Name         *string   `json:"name" validate:"omitempty"`
+	Email        *string   `json:"email" validate:"omitempty,email"`
+	Roles        *[]string `json:"roles" validate:"omitempty"`
+	PasswordHash *string   `json:"password_hash" validate:"omitempty"`
 }
 
-// UserService coordinates user operations.
-type UserService struct {
-	repo      *repository.UserRepository
+// Service coordinates user operations.
+type Service struct {
+	repo      *Repository
 	validator *validator.Validate
 }
 
-// NewUserService constructs a UserService.
-func NewUserService(repo *repository.UserRepository) *UserService {
-	return &UserService{repo: repo, validator: validator.New()}
+// NewService constructs a Service.
+func NewService(repo *Repository) *Service {
+	return &Service{repo: repo, validator: validator.New()}
 }
 
 // List returns all users.
-func (s *UserService) List(ctx context.Context) ([]User, error) {
+func (s *Service) List(ctx context.Context) ([]User, error) {
 	records, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, err
@@ -62,19 +60,19 @@ func (s *UserService) List(ctx context.Context) ([]User, error) {
 }
 
 // Create persists a new user record.
-func (s *UserService) Create(ctx context.Context, input CreateUserInput) (User, error) {
+func (s *Service) Create(ctx context.Context, input CreateUserInput) (User, error) {
 	if err := s.validator.Struct(input); err != nil {
 		return User{}, err
 	}
 
-	record := repository.User{
+	record := userRecord{
 		Name:         input.Name,
 		Email:        strings.ToLower(input.Email),
 		Roles:        strings.Join(input.Roles, ","),
 		PasswordHash: input.PasswordHash,
 	}
 
-	if err := repository.HandleErrors(s.repo.Create(ctx, &record)); err != nil {
+	if err := handleErrors(s.repo.Create(ctx, &record)); err != nil {
 		return User{}, err
 	}
 
@@ -82,7 +80,7 @@ func (s *UserService) Create(ctx context.Context, input CreateUserInput) (User, 
 }
 
 // Update modifies existing user information.
-func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUserInput) (User, error) {
+func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateUserInput) (User, error) {
 	if err := s.validator.Struct(input); err != nil {
 		return User{}, err
 	}
@@ -113,12 +111,12 @@ func (s *UserService) Update(ctx context.Context, id uuid.UUID, input UpdateUser
 }
 
 // Delete removes a user by ID.
-func (s *UserService) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.repo.Delete(ctx, id)
 }
 
 // Get fetches a single user by ID.
-func (s *UserService) Get(ctx context.Context, id uuid.UUID) (User, error) {
+func (s *Service) Get(ctx context.Context, id uuid.UUID) (User, error) {
 	record, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return User{}, err
@@ -127,7 +125,7 @@ func (s *UserService) Get(ctx context.Context, id uuid.UUID) (User, error) {
 	return toDomain(*record), nil
 }
 
-func toDomain(u repository.User) User {
+func toDomain(u userRecord) User {
 	roles := []string{}
 	if u.Roles != "" {
 		roles = strings.Split(u.Roles, ",")

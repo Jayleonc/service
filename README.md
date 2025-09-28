@@ -1,121 +1,85 @@
-# Auth Service Toolbox
+# Modular Go Application Scaffold
 
-The Auth Service Toolbox is a Go service starter kit that demonstrates how to assemble
-production-ready building blocks without forcing a single dependency management strategy.
-It keeps the application layer focused on behaviour while extracting reusable
-infrastructure components into a portable toolbox. The result is a codebase that is easy
-to reason about, simple to extend, and ready to power new services beyond authentication.
+This repository captures the final iteration of our "modular self-registration" and "dual development paradigm" blueprint. It is a runnable Go service whose structure demonstrates how to combine an opinionated application core with modules that register themselves without touching the bootstrap logic. The template is intentionally compact so that teams can move fast while keeping a clear path for long-term maintenance.
 
-## Architectural Intent
-
-This project applies four guiding principles:
-
-1. **Separate application from infrastructure** – the `cmd/` tree only wires components
-together. Reusable capabilities such as logging, configuration loading, telemetry, and
-database connectivity live in `pkg/` and can be imported by any service.
-2. **Expose dual dependency paradigms** – every infrastructure component offers both a
-constructor (dependency injection path) and a global accessor (singleton path). Teams can
-choose the style that best matches the scenario.
-3. **Focus on a universal core** – the repository ships with an authentication service and
-user management workflow, a feature set relevant to almost every product.
-4. **Documentation as a product** – this README is the blueprint describing how the
-architecture fits together and how to extend it responsibly.
-
-## Project Layout
+## Architecture Overview
 
 ```
-cmd/
-  auth/        # Application assembly – orchestrates the auth service
-internal/
-  handler/     # HTTP handlers and router composition
-  middleware/  # Cross-cutting Gin middleware
-  repository/  # Data access for users
-  service/     # Domain logic for user management
-pkg/
-  auth/        # JWT manager with DI + singleton access
-  config/      # Configuration loader and global access
-  database/    # GORM Postgres connection helpers
-  logger/      # Structured logging helpers
-  metrics/     # Prometheus registry helpers
-  server/      # HTTP server factory
-  telemetry/   # OpenTelemetry initialisation helpers
+cmd/service/            # Entry point – creates the application context
+internal/server/        # Application core, bootstrap logic and module manifest
+internal/auth/          # Structured/DI example module (user management)
+internal/role/          # Simple/Singleton example module (role assignments)
+internal/middleware/    # Shared Gin middleware
+pkg/                    # Reusable infrastructure (config, DB, auth, telemetry, ...)
 ```
 
-`cmd/auth/main.go` now reads like an assembly script. It wires configuration, logging,
-telemetry, persistence, and the HTTP surface without embedding the construction details of
-those pieces. Each toolbox package is reusable across future services.
+The execution flow is as follows:
 
-## Dual Dependency Paradigms
+1. `cmd/service/main.go` creates a cancellable context, invokes the bootstrapper, and manages graceful shutdown.
+2. `internal/server/bootstrap.go` assembles shared infrastructure (config, logger, database, telemetry, HTTP router) and iterates the module manifest.
+3. Each entry in `internal/server/modules.go` exposes a `Register` function that receives shared dependencies and mounts routes on the shared router.
+4. `internal/server/app.go` encapsulates the HTTP server lifecycle (`Start`, `Shutdown`) so the entry point stays declarative.
 
-Every infrastructure package exposes two complementary usage patterns.
+## Module Manifest
 
-### Structured / Dependency Injection Path
+`internal/server/modules.go` is the single source of truth for enabled modules. Adding a module means:
 
-Use explicit constructors when you need clarity, testability, or custom lifecycles.
+1. Creating a package under `internal/` with a `Register(context.Context, server.ModuleDeps) error` function.
+2. Appending the register function to the `Modules` slice alongside a descriptive name.
+3. (Optional) Exporting additional setup logs to guide future readers.
 
-```go
-cfg, _ := config.Load(ctx, nil)
-log := logger.New(logger.Config{Level: cfg.Log.Level})
-authManager, _ := auth.NewManager(auth.Config{Secret: cfg.Auth.Secret})
-db, _ := database.New(database.Config{Host: cfg.Database.Host})
-repo := repository.NewUserRepository(db)
-svc := service.NewUserService(repo)
-```
+Because the bootstrapper simply loops over this list, the main function remains untouched as the application grows.
 
-Each dependency is passed to the next layer, making relationships explicit and easy to
-mock in unit tests.
+## Dual Development Paradigms
 
-### Simple / Singleton Path
+Two modules demonstrate how to balance speed and structure inside the same application.
 
-When speed matters more than indirection, initialise the toolbox once and use global
-helpers anywhere.
+### Structured / Dependency-Injection Path – `internal/auth`
 
-```go
-config.Init(ctx, nil)
-logger.Init(logger.Config{Level: "info"})
-database.Init(database.Config{Host: "localhost"})
-auth.Init(auth.Config{Secret: "supersecret"})
+The authentication module models the "enterprise" path. `register.go` wires a repository, service, and HTTP handler. The repository owns migrations and data access logic, the service layer centralises validation, and the handler exposes REST endpoints. This style favours explicit dependencies and is ideal for complex, high-change domains.
 
-func CreateSession(userID string) (string, error) {
-        mgr := auth.Default()
-        return mgr.GenerateToken(userID, []string{"user"})
-}
-```
+Key files:
 
-The singleton path keeps peripheral code lightweight while still being threadsafe. Both
-approaches coexist, so teams can mix and match as complexity evolves.
+- `internal/auth/repository.go` – persistence model, migrations, and error translation.
+- `internal/auth/service.go` – validation and domain orchestration.
+- `internal/auth/handler.go` – HTTP contract for `/v1/users`.
+- `internal/auth/register.go` – self-contained dependency graph assembly.
 
-## Running the Auth Service
+### Simple / Singleton Path – `internal/role`
 
-1. Provision dependencies (for example via Docker Compose) and export the required
-   environment variables. Only a PostgreSQL database is required to boot the API.
-2. Install Go 1.22 or newer.
-3. Start the service:
+The role module embraces the "move fast" path. `register.go` fetches the globally initialised database (set up by the bootstrapper), runs a lightweight migration, and mounts a single handler. The handler itself directly touches GORM to insert rows for `POST /v1/roles`. No repository or service layer is introduced—the logic stays inside the handler for maximum velocity when requirements are small and well understood.
 
-```bash
-cd cmd/auth
-go run .
-```
+Key files:
 
-The server listens on `0.0.0.0:3000` by default. Update configuration via environment
-variables prefixed with `AUTH_` (e.g. `AUTH_DATABASE_HOST`, `AUTH_LOG_LEVEL`).
+- `internal/role/handler.go` – inline model definitions plus the request handler using `database.Default()`.
+- `internal/role/register.go` – minimal bootstrap, perfect for quick CRUD style features.
 
-## Extending the Toolbox
+Both modules share the same router instance and live side-by-side without leaking concerns into the bootstrapper.
 
-- Add new reusable infrastructure by creating another package under `pkg/` with both DI
-  and singleton entry points.
-- Keep new domain logic inside `internal/` packages and expose HTTP or gRPC handlers that
-  orchestrate the toolbox dependencies.
-- Create additional services by adding new folders under `cmd/` that assemble the
-  components they require.
+## Quick Start
 
-## Observability
+1. Install Go 1.22 or newer.
+2. Ensure PostgreSQL is available and export configuration through the `AUTH_` environment variables (defaults point to `localhost:5432`).
+3. Run the service:
 
-- Logging is provided by `pkg/logger`, with defaults configured through `AUTH_LOG_LEVEL`
-  and `AUTH_LOG_PRETTY`.
-- Metrics are exposed via the `/metrics` endpoint when a Prometheus registry is wired.
-- Tracing is optional: enable it with `AUTH_TELEMETRY_ENABLED=true` and point
-  `AUTH_TELEMETRY_ENDPOINT` to an OTLP endpoint.
+   ```bash
+   go run ./cmd/service
+   ```
+
+The server starts on `0.0.0.0:3000` by default. A health probe is available at `/health`, Prometheus metrics at `/metrics`, and the demo APIs under `/v1` (authenticated by the JWT manager initialised during bootstrap).
+
+## Extending the Template
+
+1. **Create a module** – add a folder under `internal/` and implement a `Register` function.
+2. **Add it to the manifest** – append an entry to `internal/server/modules.go`.
+3. **Use the paradigm that fits** – wire explicit constructors (like `internal/auth`) or lean on global singletons (like `internal/role`). You can mix approaches within the same application depending on the feature.
+
+With this workflow, a new module can be added by touching only two locations: its own directory and the manifest.
+
+## Observability and Infrastructure
+
+- Logging, metrics, database access, JWT management, and telemetry live in `pkg/`. Each package exposes both constructor-style (`New*`) and singleton-style (`Init`, `Default`) helpers so modules can choose the ergonomics they need.
+- Middleware such as request logging, panic recovery, metrics collection, and authentication live in `internal/middleware/` and are automatically applied by the shared router.
 
 ## License
 

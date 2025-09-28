@@ -1,26 +1,24 @@
-package v1
+package auth
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-
-	"github.com/Jayleonc/service/internal/service"
 )
 
-// UserHandler exposes user endpoints.
-type UserHandler struct {
-	svc *service.UserService
+// Handler exposes user endpoints.
+type Handler struct {
+	svc *Service
 }
 
-// NewUserHandler constructs a UserHandler.
-func NewUserHandler(svc *service.UserService) *UserHandler {
-	return &UserHandler{svc: svc}
+// NewHandler constructs a Handler following the DI-oriented paradigm.
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // RegisterRoutes registers user routes under the provided router group.
-func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
+func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/users", h.list)
 	rg.POST("/users", h.create)
 	rg.GET("/users/:id", h.get)
@@ -42,7 +40,7 @@ type updateUserRequest struct {
 	PasswordHash *string   `json:"password_hash"`
 }
 
-func (h *UserHandler) list(c *gin.Context) {
+func (h *Handler) list(c *gin.Context) {
 	users, err := h.svc.List(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -52,14 +50,14 @@ func (h *UserHandler) list(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-func (h *UserHandler) create(c *gin.Context) {
+func (h *Handler) create(c *gin.Context) {
 	var req createUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := h.svc.Create(c.Request.Context(), service.CreateUserInput{
+	user, err := h.svc.Create(c.Request.Context(), CreateUserInput{
 		Name:         req.Name,
 		Email:        req.Email,
 		Roles:        req.Roles,
@@ -73,7 +71,7 @@ func (h *UserHandler) create(c *gin.Context) {
 	c.JSON(http.StatusCreated, user)
 }
 
-func (h *UserHandler) get(c *gin.Context) {
+func (h *Handler) get(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -89,7 +87,7 @@ func (h *UserHandler) get(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (h *UserHandler) update(c *gin.Context) {
+func (h *Handler) update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -102,7 +100,7 @@ func (h *UserHandler) update(c *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.Update(c.Request.Context(), id, service.UpdateUserInput{
+	user, err := h.svc.Update(c.Request.Context(), id, UpdateUserInput{
 		Name:         req.Name,
 		Email:        req.Email,
 		Roles:        req.Roles,
@@ -116,7 +114,7 @@ func (h *UserHandler) update(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (h *UserHandler) delete(c *gin.Context) {
+func (h *Handler) delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
