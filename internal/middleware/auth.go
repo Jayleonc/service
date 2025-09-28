@@ -6,31 +6,35 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Jayleonc/service/pkg/auth"
+	"github.com/Jayleonc/service/internal/auth"
+	"github.com/Jayleonc/service/pkg/response"
 )
 
 // Authenticated ensures the request has a valid JWT token.
-func Authenticated(manager *auth.Manager) gin.HandlerFunc {
+func Authenticated(service *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if header == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
+			response.Error(c, http.StatusUnauthorized, 2001, "missing authorization header")
+			c.Abort()
 			return
 		}
 
 		parts := strings.SplitN(header, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "bearer") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header"})
+			response.Error(c, http.StatusUnauthorized, 2002, "invalid authorization header")
+			c.Abort()
 			return
 		}
 
-		claims, err := manager.ParseToken(parts[1])
+		session, err := service.Validate(c.Request.Context(), parts[1])
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			response.Error(c, http.StatusUnauthorized, 2003, "invalid token")
+			c.Abort()
 			return
 		}
 
-		c.Set("claims", claims)
+		auth.SetContextSession(c, session)
 		c.Next()
 	}
 }

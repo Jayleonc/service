@@ -1,31 +1,21 @@
 package role
 
 import (
-        "net/http"
-        "time"
+	"net/http"
+	"time"
 
-        "github.com/gin-gonic/gin"
-        "github.com/google/uuid"
-        "gorm.io/gorm"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
-        "github.com/Jayleonc/service/pkg/database"
+	"github.com/Jayleonc/service/pkg/database"
+	"github.com/Jayleonc/service/pkg/response"
 )
 
 type assignment struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
 	UserID      uuid.UUID `gorm:"type:uuid;index"`
 	Role        string
-	DateCreated time.Time
-}
-
-func (a *assignment) BeforeCreate(_ *gorm.DB) error {
-	if a.ID == uuid.Nil {
-		a.ID = uuid.New()
-	}
-	if a.DateCreated.IsZero() {
-		a.DateCreated = time.Now().UTC()
-	}
-	return nil
+	DateCreated time.Time `gorm:"column:date_created;autoCreateTime"`
 }
 
 // Handler demonstrates the lightweight, singleton-driven development path.
@@ -49,29 +39,29 @@ type createRoleRequest struct {
 func (h *Handler) create(c *gin.Context) {
 	var req createRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusBadRequest, 4001, "invalid request payload")
 		return
 	}
 
 	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		response.Error(c, http.StatusBadRequest, 4002, "invalid user id")
 		return
 	}
 
 	db := database.Default()
 	if db == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "database not initialised"})
+		response.Error(c, http.StatusInternalServerError, 4003, "database not initialised")
 		return
 	}
 
-	record := assignment{UserID: userID, Role: req.Role}
+	record := assignment{ID: uuid.New(), UserID: userID, Role: req.Role, DateCreated: time.Now().UTC()}
 	if err := db.WithContext(c.Request.Context()).Create(&record).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		response.Error(c, http.StatusInternalServerError, 4004, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	response.SuccessWithStatus(c, http.StatusCreated, gin.H{
 		"id":           record.ID,
 		"user_id":      record.UserID,
 		"role":         record.Role,

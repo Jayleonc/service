@@ -2,140 +2,109 @@ package auth
 
 import (
 	"context"
-	"strings"
+	"errors"
+	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+
+	authpkg "github.com/Jayleonc/service/pkg/auth"
 )
 
-// User represents a domain user.
-type User struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	Email        string    `json:"email"`
-	Roles        []string  `json:"roles"`
-	PasswordHash string    `json:"password_hash"`
+var (
+	// ErrInvalidRefreshToken indicates that the provided refresh token is no longer valid.
+	ErrInvalidRefreshToken = errors.New("auth: invalid refresh token")
+	// ErrSessionNotFound is returned when a session cannot be located in the store.
+	ErrSessionNotFound = errors.New("auth: session not found")
+)
+
+// Tokens represents an issued access and refresh token pair.
+type Tokens struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    time.Duration
 }
 
-// CreateUserInput defines payload for creating a user.
-type CreateUserInput struct {
-	Name         string   `json:"name" validate:"required"`
-	Email        string   `json:"email" validate:"required,email"`
-	Roles        []string `json:"roles" validate:"required"`
-	PasswordHash string   `json:"password_hash" validate:"required"`
-}
-
-// UpdateUserInput defines payload for updating a user.
-type UpdateUserInput struct {
-	Name         *string   `json:"name" validate:"omitempty"`
-	Email        *string   `json:"email" validate:"omitempty,email"`
-	Roles        *[]string `json:"roles" validate:"omitempty"`
-	PasswordHash *string   `json:"password_hash" validate:"omitempty"`
-}
-
-// Service coordinates user operations.
+// Service manages stateless JWT creation backed by a Redis session store.
 type Service struct {
-	repo      *Repository
-	validator *validator.Validate
+	manager    *authpkg.Manager
+	store      *SessionStore
+	refreshTTL time.Duration
 }
 
-// NewService constructs a Service.
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo, validator: validator.New()}
+// NewService constructs a Service instance.
+func NewService(manager *authpkg.Manager, store *SessionStore) *Service {
+	return &Service{
+		manager:    manager,
+		store:      store,
+		refreshTTL: manager.RefreshTTL(),
+	}
 }
 
-// List returns all users.
-func (s *Service) List(ctx context.Context) ([]User, error) {
-	records, err := s.repo.List(ctx)
+// IssueTokens creates a new authenticated session and returns the token pair.
+func (s *Service) IssueTokens(ctx context.Context, userID uuid.UUID, roles []string) (Tokens, error) {
+	sessionID := uuid.NewString()
+	refreshToken := uuid.NewString()
+
+	accessToken, _, err := s.manager.GenerateToken(sessionID, userID.String(), roles)
 	if err != nil {
-		return nil, err
+		return Tokens{}, err
 	}
 
-	users := make([]User, 0, len(records))
-	for _, rec := range records {
-		users = append(users, toDomain(rec))
-	}
-
-	return users, nil
-}
-
-// Create persists a new user record.
-func (s *Service) Create(ctx context.Context, input CreateUserInput) (User, error) {
-	if err := s.validator.Struct(input); err != nil {
-		return User{}, err
-	}
-
-	record := userRecord{
-		Name:         input.Name,
-		Email:        strings.ToLower(input.Email),
-		Roles:        strings.Join(input.Roles, ","),
-		PasswordHash: input.PasswordHash,
-	}
-
-	if err := handleErrors(s.repo.Create(ctx, &record)); err != nil {
-		return User{}, err
-	}
-
-	return toDomain(record), nil
-}
-
-// Update modifies existing user information.
-func (s *Service) Update(ctx context.Context, id uuid.UUID, input UpdateUserInput) (User, error) {
-	if err := s.validator.Struct(input); err != nil {
-		return User{}, err
-	}
-
-	record, err := s.repo.Get(ctx, id)
-	if err != nil {
-		return User{}, err
-	}
-
-	if input.Name != nil {
-		record.Name = *input.Name
-	}
-	if input.Email != nil {
-		record.Email = strings.ToLower(*input.Email)
-	}
-	if input.Roles != nil {
-		record.Roles = strings.Join(*input.Roles, ",")
-	}
-	if input.PasswordHash != nil {
-		record.PasswordHash = *input.PasswordHash
-	}
-
-	if err := s.repo.Update(ctx, record); err != nil {
-		return User{}, err
-	}
-
-	return toDomain(*record), nil
-}
-
-// Delete removes a user by ID.
-func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.repo.Delete(ctx, id)
-}
-
-// Get fetches a single user by ID.
-func (s *Service) Get(ctx context.Context, id uuid.UUID) (User, error) {
-	record, err := s.repo.Get(ctx, id)
-	if err != nil {
-		return User{}, err
-	}
-
-	return toDomain(*record), nil
-}
-
-func toDomain(u userRecord) User {
-	roles := []string{}
-	if u.Roles != "" {
-		roles = strings.Split(u.Roles, ",")
-	}
-
-	return User{
-		ID:           u.ID,
-		Name:         u.Name,
-		Email:        u.Email,
+	session := SessionData{
+		SessionID:    sessionID,
+		UserID:       userID,
 		Roles:        roles,
-		PasswordHash: u.PasswordHash,
+		RefreshToken: refreshToken,
 	}
+
+	if err := s.store.Save(ctx, session, s.refreshTTL); err != nil {
+		return Tokens{}, err
+	}
+
+	return Tokens{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.manager.AccessTTL(),
+	}, nil
+}
+
+// Refresh rotates the refresh token and issues a new access token for the provided refresh token.
+func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, error) {
+	session, err := s.store.GetByRefreshToken(ctx, refreshToken)
+	if err != nil {
+		return Tokens{}, err
+	}
+
+	newRefreshToken := uuid.NewString()
+	session.RefreshToken = newRefreshToken
+
+	accessToken, _, err := s.manager.GenerateToken(session.SessionID, session.UserID.String(), session.Roles)
+	if err != nil {
+		return Tokens{}, err
+	}
+
+	if err := s.store.ReplaceRefreshToken(ctx, session, refreshToken, s.refreshTTL); err != nil {
+		return Tokens{}, err
+	}
+
+	return Tokens{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    s.manager.AccessTTL(),
+	}, nil
+}
+
+// Validate extracts the session from the access token.
+func (s *Service) Validate(ctx context.Context, token string) (SessionData, error) {
+	claims, err := s.manager.ParseToken(token)
+	if err != nil {
+		return SessionData{}, err
+	}
+
+	session, err := s.store.Get(ctx, claims.SessionID)
+	if err != nil {
+		return SessionData{}, err
+	}
+
+	return session, nil
 }

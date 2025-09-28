@@ -8,6 +8,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/module"
 	"github.com/Jayleonc/service/pkg/auth"
+	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
 	"github.com/Jayleonc/service/pkg/database"
 	"github.com/Jayleonc/service/pkg/logger"
@@ -26,24 +27,37 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 	log := logger.Init(logger.Config{Level: cfg.Log.Level, Pretty: cfg.Log.Pretty})
 
 	db, err := database.Init(database.Config{
+		Driver:   cfg.Database.Driver,
 		Host:     cfg.Database.Host,
 		Port:     cfg.Database.Port,
 		User:     cfg.Database.User,
 		Password: cfg.Database.Password,
 		Database: cfg.Database.Name,
 		SSLMode:  cfg.Database.SSLMode,
+		Params:   cfg.Database.Params,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
 	}
 
+	cacheClient, err := cache.Init(cache.Config{
+		Addr:     cfg.Redis.Addr,
+		Username: cfg.Redis.Username,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("connect redis: %w", err)
+	}
+
 	registry := metrics.InitRegistry()
 
 	authManager, err := auth.Init(auth.Config{
-		Issuer:   cfg.Auth.Issuer,
-		Audience: cfg.Auth.Audience,
-		Secret:   cfg.Auth.Secret,
-		Duration: cfg.Auth.TTL,
+		Issuer:     cfg.Auth.Issuer,
+		Audience:   cfg.Auth.Audience,
+		Secret:     cfg.Auth.Secret,
+		AccessTTL:  cfg.Auth.AccessTTL,
+		RefreshTTL: cfg.Auth.RefreshTTL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure auth manager: %w", err)
@@ -60,7 +74,6 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 
 	router, api := NewRouter(RouterConfig{
 		Logger:           log,
-		Auth:             authManager,
 		Registry:         registry,
 		TelemetryEnabled: cfg.Telemetry.Enabled,
 		TelemetryName:    cfg.Telemetry.ServiceName,
@@ -74,6 +87,7 @@ func Bootstrap(ctx context.Context, args []string) (*App, error) {
 		Auth:     authManager,
 		Registry: registry,
 		Config:   cfg,
+		Cache:    cacheClient,
 	}
 
 	for _, entry := range Modules {
