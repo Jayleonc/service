@@ -5,6 +5,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Jayleonc/service/internal/role"
 )
 
 // Repository provides database access for users.
@@ -29,25 +31,41 @@ func (r *Repository) Update(ctx context.Context, user *User) error {
 
 // Delete removes a user record by ID.
 func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&User{}, "id = ?", id).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		target := &User{ID: id}
+		if err := tx.Model(target).Association("Roles").Clear(); err != nil {
+			return err
+		}
+		return tx.Delete(&User{}, "id = ?", id).Error
+	})
 }
 
-// Get retrieves a user by ID.
+// Get retrieves a user by ID including roles.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 	var user User
-	if err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Roles").First(&user, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-// GetByEmail retrieves a user by email.
+// GetByEmail retrieves a user by email including roles.
 func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error) {
 	var user User
-	if err := r.db.WithContext(ctx).First(&user, "email = ?", email).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Roles").First(&user, "email = ?", email).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
+}
+
+// Query returns a base query for listing users.
+func (r *Repository) Query(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Model(&User{}).Preload("Roles")
+}
+
+// ReplaceRoles 替换用户的角色集合
+func (r *Repository) ReplaceRoles(ctx context.Context, user *User, roles []role.Role) error {
+	return r.db.WithContext(ctx).Model(user).Association("Roles").Replace(roles)
 }
 
 // Migrate performs the schema migration for users.

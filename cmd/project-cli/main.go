@@ -415,7 +415,7 @@ func goModulePath(root string) (string, error) {
 }
 
 func updateModulesFile(root, modulePath, moduleName string) error {
-	modulesPath := filepath.Join(root, "internal", "server", "modules.go")
+	modulesPath := filepath.Join(root, "internal", "app", "bootstrap.go")
 	content, err := os.ReadFile(modulesPath)
 	if err != nil {
 		return err
@@ -426,29 +426,23 @@ func updateModulesFile(root, modulePath, moduleName string) error {
 		return fmt.Errorf("module %q is already registered", moduleName)
 	}
 
-	alias := fmt.Sprintf("%smodule", moduleName)
-	reference := alias
-	if reference == "" {
-		reference = moduleName
-	}
-
-	updated, err := insertImport(string(content), alias, importPath)
+	updated, err := insertImport(string(content), "", importPath)
 	if err != nil {
 		return err
 	}
 
-	updated, err = insertModuleEntry(updated, moduleName, reference)
+	updated, err = insertModuleEntry(updated, moduleName, moduleName)
 	if err != nil {
 		return err
 	}
 
 	formatted, err := format.Source([]byte(updated))
 	if err != nil {
-		return fmt.Errorf("format modules.go: %w", err)
+		return fmt.Errorf("format bootstrap.go: %w", err)
 	}
 
 	if err := os.WriteFile(modulesPath, formatted, 0o644); err != nil {
-		return fmt.Errorf("write modules.go: %w", err)
+		return fmt.Errorf("write bootstrap.go: %w", err)
 	}
 
 	return nil
@@ -459,13 +453,13 @@ func insertImport(content, alias, path string) (string, error) {
 
 	idx := strings.Index(content, importKeyword)
 	if idx == -1 {
-		return "", errors.New("import block not found in modules.go")
+		return "", errors.New("import block not found in bootstrap.go")
 	}
 
 	blockStart := idx + len(importKeyword)
 	blockEnd := strings.Index(content[blockStart:], ")")
 	if blockEnd == -1 {
-		return "", errors.New("import block not terminated in modules.go")
+		return "", errors.New("import block not terminated in bootstrap.go")
 	}
 
 	insertPos := blockStart + blockEnd
@@ -481,11 +475,11 @@ func insertImport(content, alias, path string) (string, error) {
 }
 
 func insertModuleEntry(content, moduleName, reference string) (string, error) {
-	const marker = "var Modules = []module.Entry{"
+	const marker = "var Modules = []feature.Entry{"
 
 	idx := strings.Index(content, marker)
 	if idx == -1 {
-		return "", errors.New("Modules slice not found in modules.go")
+		return "", errors.New("Modules slice not found in bootstrap.go")
 	}
 
 	openIdx := idx + len(marker) - 1
@@ -551,8 +545,8 @@ import (
 
         "github.com/gin-gonic/gin"
 
-        "github.com/Jayleonc/service/pkg/database"
-        "github.com/Jayleonc/service/pkg/logger"
+        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/pkg/response"
 )
 
 type Handler struct{}
@@ -561,27 +555,31 @@ func NewHandler() *Handler {
         return &Handler{}
 }
 
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-        if rg == nil {
-                return
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+        return feature.ModuleRoutes{
+                PublicRoutes: []feature.RouteDefinition{
+                        {Path: "/ping", Handler: h.ping},
+                },
+                AuthenticatedRoutes: []feature.RouteDefinition{
+                        {Path: "/echo", Handler: h.echo},
+                },
         }
-
-        rg.POST("{{.Route}}/ping", h.ping)
 }
 
 func (h *Handler) ping(c *gin.Context) {
-        log := logger.Default()
-        if log != nil {
-                log.Debug("{{.DisplayName}} ping received")
-        }
+        response.Success(c, gin.H{"message": "{{.DisplayName}} pong"})
+}
 
-        db := database.Default()
-        if db == nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "database not initialised"})
+func (h *Handler) echo(c *gin.Context) {
+        var req struct {
+                Message string ` + "`json:\"message\" binding:\"required\"`" + `
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+                response.Error(c, http.StatusBadRequest, 1, "invalid request payload")
                 return
         }
 
-        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+        response.Success(c, gin.H{"message": req.Message})
 }
 `
 
@@ -591,16 +589,22 @@ import (
         "context"
         "fmt"
 
-        "github.com/Jayleonc/service/internal/module"
+        "github.com/Jayleonc/service/internal/auth"
+        "github.com/Jayleonc/service/internal/feature"
 )
 
-func Register(ctx context.Context, deps module.Dependencies) error {
-        if deps.API == nil {
-                return fmt.Errorf("{{.Name}} module requires the API router group")
+func Register(ctx context.Context, deps feature.Dependencies) error {
+        if deps.Router == nil {
+                return fmt.Errorf("{{.Name}} module requires the route registrar")
+        }
+
+        authService := auth.DefaultService()
+        if authService == nil {
+                return fmt.Errorf("{{.Name}} module requires the auth service to be initialised")
         }
 
         handler := NewHandler()
-        handler.RegisterRoutes(deps.API)
+        deps.Router.RegisterModule("{{.Route}}", handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "singleton")
@@ -655,6 +659,9 @@ import (
         "net/http"
 
         "github.com/gin-gonic/gin"
+
+        "github.com/Jayleonc/service/internal/feature"
+        "github.com/Jayleonc/service/pkg/response"
 )
 
 type Handler struct {
@@ -665,26 +672,41 @@ func NewHandler(service *Service) *Handler {
         return &Handler{service: service}
 }
 
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-        if rg == nil {
-                return
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+        return feature.ModuleRoutes{
+                PublicRoutes: []feature.RouteDefinition{
+                        {Path: "/ping", Handler: h.ping},
+                },
+                AuthenticatedRoutes: []feature.RouteDefinition{
+                        {Path: "/process", Handler: h.process},
+                },
         }
-
-        rg.POST("{{.Route}}/ping", h.ping)
 }
 
 func (h *Handler) ping(c *gin.Context) {
+        response.Success(c, gin.H{"status": "ok"})
+}
+
+func (h *Handler) process(c *gin.Context) {
         if h.service == nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "service not configured"})
+                response.Error(c, http.StatusInternalServerError, 1, "service not configured")
+                return
+        }
+
+        var req struct {
+                Message string ` + "`json:\"message\" binding:\"required\"`" + `
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+                response.Error(c, http.StatusBadRequest, 2, "invalid request payload")
                 return
         }
 
         if err := h.service.Ping(c.Request.Context()); err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                response.Error(c, http.StatusInternalServerError, 3, err.Error())
                 return
         }
 
-        c.JSON(http.StatusOK, gin.H{"status": "ok"})
+        response.Success(c, gin.H{"message": req.Message})
 }
 `
 
@@ -694,21 +716,27 @@ import (
         "context"
         "fmt"
 
-        "github.com/Jayleonc/service/internal/module"
+        "github.com/Jayleonc/service/internal/auth"
+        "github.com/Jayleonc/service/internal/feature"
 )
 
-func Register(ctx context.Context, deps module.Dependencies) error {
+func Register(ctx context.Context, deps feature.Dependencies) error {
         if deps.DB == nil {
                 return fmt.Errorf("{{.Name}} module requires a database instance")
         }
-        if deps.API == nil {
-                return fmt.Errorf("{{.Name}} module requires the API router group")
+        if deps.Router == nil {
+                return fmt.Errorf("{{.Name}} module requires the route registrar")
+        }
+
+        authService := auth.DefaultService()
+        if authService == nil {
+                return fmt.Errorf("{{.Name}} module requires the auth service to be initialised")
         }
 
         repo := NewRepository(deps.DB)
         svc := NewService(repo)
         handler := NewHandler(svc)
-        handler.RegisterRoutes(deps.API)
+        deps.Router.RegisterModule("{{.Route}}", handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured")

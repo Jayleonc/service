@@ -5,16 +5,17 @@ import (
 	"fmt"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/role"
 )
 
 // Register wires the user module using the structured/DI development path.
-func Register(ctx context.Context, deps module.Dependencies) error {
+func Register(ctx context.Context, deps feature.Dependencies) error {
 	if deps.DB == nil {
 		return fmt.Errorf("user module requires a database instance")
 	}
-	if deps.API == nil {
-		return fmt.Errorf("user module requires an API router group")
+	if deps.Router == nil {
+		return fmt.Errorf("user module requires a route registrar")
 	}
 	if deps.Validator == nil {
 		return fmt.Errorf("user module requires a validator instance")
@@ -30,9 +31,10 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	svc := NewService(repo, deps.Validator, authService)
-	handler := NewHandler(svc, authService)
-	handler.RegisterRoutes(deps.API)
+	roleRepo := role.NewRepository(deps.DB)
+	svc := NewService(repo, roleRepo, deps.Validator, authService)
+	handler := NewHandler(svc)
+	deps.Router.RegisterModule("/users", handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("user module initialised", "pattern", "structured")

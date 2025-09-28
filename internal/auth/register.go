@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/feature"
 )
 
 var (
@@ -14,15 +14,15 @@ var (
 )
 
 // Register wires the authentication module using the structured/DI development path.
-func Register(ctx context.Context, deps module.Dependencies) error {
+func Register(ctx context.Context, deps feature.Dependencies) error {
 	if deps.Auth == nil {
 		return fmt.Errorf("auth module requires an auth manager")
 	}
 	if deps.Cache == nil {
 		return fmt.Errorf("auth module requires a cache client")
 	}
-	if deps.API == nil {
-		return fmt.Errorf("auth module requires an API router group")
+	if deps.Router == nil {
+		return fmt.Errorf("auth module requires a route registrar")
 	}
 
 	store := NewSessionStore(deps.Cache)
@@ -30,7 +30,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 	setDefaultService(svc)
 
 	handler := NewHandler(svc)
-	handler.RegisterRoutes(deps.API)
+	deps.Router.RegisterModule("/auth", handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("auth module initialised", "pattern", "structured")

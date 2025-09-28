@@ -1,4 +1,4 @@
-package module
+package feature
 
 import (
 	"context"
@@ -14,12 +14,17 @@ import (
 	"github.com/Jayleonc/service/pkg/config"
 )
 
+// RouteRegistrar exposes the capability needed by features to register their HTTP endpoints.
+type RouteRegistrar interface {
+	RegisterModule(pathPrefix string, routes ModuleRoutes)
+}
+
 // Dependencies captures the shared infrastructure that modules can leverage during registration.
 type Dependencies struct {
 	Logger    *slog.Logger
 	DB        *gorm.DB
-	Router    *gin.Engine
-	API       *gin.RouterGroup
+	Engine    *gin.Engine
+	Router    RouteRegistrar
 	Auth      *authpkg.Manager
 	Registry  *prometheus.Registry
 	Config    config.App

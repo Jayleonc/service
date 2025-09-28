@@ -1,101 +1,56 @@
 package user
 
 import (
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/middleware"
-	"github.com/Jayleonc/service/pkg/constant"
+	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/pkg/request"
 	"github.com/Jayleonc/service/pkg/response"
 )
 
 // Handler exposes user endpoints.
 type Handler struct {
-	svc     *Service
-	authSvc *auth.Service
+	svc *Service
 }
 
 // NewHandler constructs a Handler following the DI-oriented paradigm.
-func NewHandler(svc *Service, authSvc *auth.Service) *Handler {
-	return &Handler{svc: svc, authSvc: authSvc}
+func NewHandler(svc *Service) *Handler {
+	return &Handler{svc: svc}
 }
 
-// RegisterRoutes registers user routes under the provided router group.
-func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
-	users := rg.Group("/users")
-	users.POST("/register", h.register)
-	users.POST("/login", h.login)
-
-	authenticated := users.Group("")
-	authenticated.Use(middleware.Authenticated(h.authSvc))
-	authenticated.POST("/me/get", h.me)
-	authenticated.POST("/me/update", h.updateMe)
-	authenticated.POST("/roles/update", middleware.RBAC(constant.RoleAdmin), h.updateRoles)
-}
-
-type registerRequest struct {
-	Name     string `json:"name" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Phone    string `json:"phone" binding:"omitempty"`
-}
-
-type registerResponse struct {
-	User profileResponse `json:"user"`
-}
-
-type loginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-}
-
-type loginResponse struct {
-	AccessToken  string          `json:"access_token"`
-	RefreshToken string          `json:"refresh_token"`
-	ExpiresIn    int64           `json:"expires_in"`
-	User         profileResponse `json:"user"`
-}
-
-type profileResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email"`
-	Roles       []string  `json:"roles"`
-	Phone       string    `json:"phone"`
-	DateCreated string    `json:"date_created"`
-	DateUpdated string    `json:"date_updated"`
-}
-
-type updateProfileRequest struct {
-	Name  *string `json:"name" binding:"omitempty"`
-	Phone *string `json:"phone" binding:"omitempty"`
-}
-
-type updateRolesRequest struct {
-	UserID string   `json:"user_id" binding:"required"`
-	Roles  []string `json:"roles" binding:"required,min=1,dive,required"`
+// GetRoutes returns the route declarations for the user module.
+func (h *Handler) GetRoutes() feature.ModuleRoutes {
+	return feature.ModuleRoutes{
+		PublicRoutes: []feature.RouteDefinition{
+			{Path: "/register", Handler: h.register},
+			{Path: "/login", Handler: h.login},
+		},
+		AuthenticatedRoutes: []feature.RouteDefinition{
+			{Path: "/me/get", Handler: h.me},
+			{Path: "/me/update", Handler: h.updateMe},
+		},
+		AdminRoutes: []feature.RouteDefinition{
+			{Path: "/create", Handler: h.create},
+			{Path: "/update", Handler: h.update},
+			{Path: "/delete", Handler: h.delete},
+			{Path: "/list", Handler: h.list},
+			{Path: "/assign_roles", Handler: h.assignRoles},
+		},
+	}
 }
 
 func (h *Handler) register(c *gin.Context) {
-	var req registerRequest
+	var req RegisterInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 3001, "invalid request payload")
 		return
 	}
 
-	profile, err := h.svc.Register(c.Request.Context(), RegisterInput{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: req.Password,
-		Phone:    req.Phone,
-	})
+	profile, err := h.svc.Register(c.Request.Context(), req)
 	if err != nil {
 		status := http.StatusBadRequest
 		code := 3002
@@ -106,20 +61,17 @@ func (h *Handler) register(c *gin.Context) {
 		return
 	}
 
-	response.SuccessWithStatus(c, http.StatusCreated, registerResponse{User: toProfileResponse(profile)})
+	response.SuccessWithStatus(c, http.StatusCreated, profile)
 }
 
 func (h *Handler) login(c *gin.Context) {
-	var req loginRequest
+	var req LoginInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 3011, "invalid request payload")
 		return
 	}
 
-	result, err := h.svc.Login(c.Request.Context(), LoginInput{
-		Email:    req.Email,
-		Password: req.Password,
-	})
+	result, err := h.svc.Login(c.Request.Context(), req)
 	if err != nil {
 		code := 3012
 		status := http.StatusBadRequest
@@ -131,20 +83,15 @@ func (h *Handler) login(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, loginResponse{
-		AccessToken:  result.Tokens.AccessToken,
-		RefreshToken: result.Tokens.RefreshToken,
-		ExpiresIn:    int64(result.Tokens.ExpiresIn.Seconds()),
-		User:         toProfileResponse(result.Profile),
+	response.Success(c, gin.H{
+		"access_token":  result.Tokens.AccessToken,
+		"refresh_token": result.Tokens.RefreshToken,
+		"expires_in":    int64(result.Tokens.ExpiresIn.Seconds()),
+		"user":          result.Profile,
 	})
 }
 
 func (h *Handler) me(c *gin.Context) {
-	if err := bindOptionalJSON(c, &struct{}{}); err != nil {
-		response.Error(c, http.StatusBadRequest, 3020, "invalid request payload")
-		return
-	}
-
 	session, ok := auth.SessionFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3021, "missing session")
@@ -157,7 +104,7 @@ func (h *Handler) me(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, toProfileResponse(profile))
+	response.Success(c, profile)
 }
 
 func (h *Handler) updateMe(c *gin.Context) {
@@ -167,83 +114,140 @@ func (h *Handler) updateMe(c *gin.Context) {
 		return
 	}
 
-	var req updateProfileRequest
+	var req UpdateProfileInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 3032, "invalid request payload")
 		return
 	}
 
-	profile, err := h.svc.UpdateProfile(c.Request.Context(), session.UserID, UpdateProfileInput{
-		Name:  req.Name,
-		Phone: req.Phone,
-	})
+	profile, err := h.svc.UpdateProfile(c.Request.Context(), session.UserID, req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, 3033, err.Error())
 		return
 	}
 
-	response.Success(c, toProfileResponse(profile))
+	response.Success(c, profile)
 }
 
-func (h *Handler) updateRoles(c *gin.Context) {
-	var req updateRolesRequest
+func (h *Handler) create(c *gin.Context) {
+	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 3044, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, 3041, "invalid request payload")
 		return
 	}
 
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3043, "invalid user id")
-		return
-	}
-
-	profile, err := h.svc.UpdateRoles(c.Request.Context(), userID, req.Roles)
+	profile, err := h.svc.CreateUser(c.Request.Context(), req)
 	if err != nil {
 		status := http.StatusBadRequest
-		code := 3045
-		if err == ErrRolesRequired {
-			code = 3046
+		code := 3042
+		if err == ErrEmailExists {
+			code = 3043
 		}
 		response.Error(c, status, code, err.Error())
 		return
 	}
 
-	response.Success(c, toProfileResponse(profile))
+	response.SuccessWithStatus(c, http.StatusCreated, profile)
 }
 
-func toProfileResponse(profile Profile) profileResponse {
-	return profileResponse{
-		ID:          profile.ID,
-		Name:        profile.Name,
-		Email:       profile.Email,
-		Roles:       profile.Roles,
-		Phone:       profile.Phone,
-		DateCreated: profile.DateCreated.Format(time.RFC3339),
-		DateUpdated: profile.DateUpdated.Format(time.RFC3339),
+func (h *Handler) update(c *gin.Context) {
+	var payload struct {
+		ID    string  `json:"id" binding:"required"`
+		Name  *string `json:"name"`
+		Phone *string `json:"phone"`
 	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, 3051, "invalid request payload")
+		return
+	}
+
+	userID, err := uuid.Parse(payload.ID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3052, "invalid user id")
+		return
+	}
+
+	profile, err := h.svc.UpdateUser(c.Request.Context(), UpdateUserRequest{
+		ID:    userID,
+		Name:  payload.Name,
+		Phone: payload.Phone,
+	})
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3053, err.Error())
+		return
+	}
+
+	response.Success(c, profile)
 }
 
-func bindOptionalJSON(c *gin.Context, dest any) error {
-	if c.Request == nil || c.Request.Body == nil {
-		return nil
+func (h *Handler) delete(c *gin.Context) {
+	var payload struct {
+		ID string `json:"id" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(dest); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		var syntaxError *json.SyntaxError
-		if errors.As(err, &syntaxError) {
-			return err
-		}
-		if errors.Is(err, io.ErrUnexpectedEOF) {
-			return err
-		}
-		// Gin wraps EOF errors, so perform string comparison as a fallback.
-		if err.Error() == "EOF" {
-			return nil
-		}
-		return err
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, 3061, "invalid request payload")
+		return
 	}
-	return nil
+
+	userID, err := uuid.Parse(payload.ID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3062, "invalid user id")
+		return
+	}
+
+	if err := h.svc.DeleteUser(c.Request.Context(), DeleteUserRequest{ID: userID}); err != nil {
+		response.Error(c, http.StatusBadRequest, 3063, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{"id": userID})
+}
+
+func (h *Handler) list(c *gin.Context) {
+	var payload struct {
+		Pagination request.Pagination `json:"pagination"`
+		Name       string             `json:"name"`
+		Email      string             `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, 3071, "invalid request payload")
+		return
+	}
+
+	result, err := h.svc.ListUsers(c.Request.Context(), ListUsersRequest{
+		Pagination: payload.Pagination,
+		Name:       payload.Name,
+		Email:      payload.Email,
+	})
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 3072, err.Error())
+		return
+	}
+
+	response.Success(c, result)
+}
+
+func (h *Handler) assignRoles(c *gin.Context) {
+	var payload struct {
+		ID    string   `json:"id" binding:"required"`
+		Roles []string `json:"roles" binding:"required,min=1,dive,required"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		response.Error(c, http.StatusBadRequest, 3081, "invalid request payload")
+		return
+	}
+
+	userID, err := uuid.Parse(payload.ID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3082, "invalid user id")
+		return
+	}
+
+	profile, err := h.svc.AssignRoles(c.Request.Context(), AssignRolesRequest{ID: userID, Roles: payload.Roles})
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3083, err.Error())
+		return
+	}
+
+	response.Success(c, profile)
 }
