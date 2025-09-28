@@ -11,26 +11,26 @@ import (
 
 // Response defines the standard structure shared by all API responses.
 type Response struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // PageResult 标准分页响应结构
-type PageResult struct {
-	List     interface{} `json:"list"`
-	Total    int64       `json:"total"`
-	Page     int         `json:"page"`
-	PageSize int         `json:"page_size"`
+type PageResult[T any] struct {
+	List     []T   `json:"list"`
+	Total    int64 `json:"total"`
+	Page     int   `json:"page"`
+	PageSize int   `json:"pageSize"`
 }
 
 // Success writes a successful response with the provided data payload.
-func Success(c *gin.Context, data interface{}) {
+func Success(c *gin.Context, data any) {
 	SuccessWithStatus(c, http.StatusOK, data)
 }
 
 // SuccessWithStatus writes a successful response with the supplied HTTP status code.
-func SuccessWithStatus(c *gin.Context, status int, data interface{}) {
+func SuccessWithStatus(c *gin.Context, status int, data any) {
 	c.JSON(status, Response{
 		Code:    0,
 		Message: "success",
@@ -39,7 +39,7 @@ func SuccessWithStatus(c *gin.Context, status int, data interface{}) {
 }
 
 // SuccessWithMessage writes a successful response with a custom message.
-func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
+func SuccessWithMessage(c *gin.Context, message string, data any) {
 	c.JSON(http.StatusOK, Response{
 		Code:    0,
 		Message: message,

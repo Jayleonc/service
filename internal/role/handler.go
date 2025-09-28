@@ -170,7 +170,7 @@ func (h *Handler) list(c *gin.Context) {
 	}
 
 	var roles []Role
-	if err := db.WithContext(c.Request.Context()).Order("date_created ASC").Find(&roles).Error; err != nil {
+	if err := db.WithContext(c.Request.Context()).Order("created_at ASC").Find(&roles).Error; err != nil {
 		response.Error(c, http.StatusInternalServerError, ErrListFailed)
 		return
 	}
@@ -231,7 +231,7 @@ func FindRolesByNames(ctx context.Context, names []string) ([]Role, error) {
 	var records []Role
 	if err := db.WithContext(ctx).
 		Where("name IN ?", normalized).
-		Order("date_created ASC").
+		Order("created_at ASC").
 		Find(&records).Error; err != nil {
 		return nil, err
 	}

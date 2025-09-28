@@ -7,7 +7,7 @@
     <el-table :data="roles" border stripe>
       <el-table-column prop="name" label="Name" />
       <el-table-column prop="description" label="Description" />
-      <el-table-column prop="date_created" label="Created At" />
+      <el-table-column prop="createdAt" label="Created At" />
       <el-table-column label="Actions" width="180">
         <template #default="scope">
           <el-button size="small" @click="openEdit(scope.row)">Edit</el-button>

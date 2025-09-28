@@ -1,12 +1,13 @@
 package paginator
 
 import (
-	"reflect"
+	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/Jayleonc/service/pkg/request"
 	"github.com/Jayleonc/service/pkg/response"
+	"github.com/Jayleonc/service/pkg/utils"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 // Paginate 执行标准分页查询，返回统一分页结果
-func Paginate(db *gorm.DB, req *request.Pagination, out any) (*response.PageResult, error) {
+func Paginate[T any](db *gorm.DB, req *request.Pagination) (*response.PageResult[T], error) {
 	if db == nil {
 		return nil, gorm.ErrInvalidDB
 	}
@@ -33,7 +34,7 @@ func Paginate(db *gorm.DB, req *request.Pagination, out any) (*response.PageResu
 			pageSize = req.PageSize
 		}
 		if req.OrderBy != "" {
-			orderBy = req.OrderBy
+			orderBy = strings.TrimSpace(req.OrderBy)
 		}
 	}
 
@@ -54,21 +55,16 @@ func Paginate(db *gorm.DB, req *request.Pagination, out any) (*response.PageResu
 	}
 
 	if orderBy != "" {
-		query = query.Order(orderBy)
+		query = query.Order(utils.CamelToSnake(orderBy))
 	}
 
-	if err := query.Offset(offset).Limit(pageSize).Find(out).Error; err != nil {
+	var items []T
+	if err := query.Offset(offset).Limit(pageSize).Find(&items).Error; err != nil {
 		return nil, err
 	}
 
-	list := out
-	value := reflect.ValueOf(out)
-	if value.Kind() == reflect.Ptr && !value.IsNil() {
-		list = value.Elem().Interface()
-	}
-
-	return &response.PageResult{
-		List:     list,
+	return &response.PageResult[T]{
+		List:     items,
 		Total:    total,
 		Page:     page,
 		PageSize: pageSize,

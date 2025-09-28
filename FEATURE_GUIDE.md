@@ -86,10 +86,10 @@ func (h *Handler) create(c *gin.Context) {
         }
 
         c.JSON(http.StatusCreated, gin.H{
-                "id":           record.ID,
-                "user_id":      record.UserID,
-                "role":         record.Role,
-                "date_created": record.DateCreated,
+                "id":        record.ID,
+                "userId":    record.UserID,
+                "role":      record.Role,
+                "createdAt": record.CreatedAt,
         })
 }
 ```

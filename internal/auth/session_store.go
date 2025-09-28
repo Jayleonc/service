@@ -13,9 +13,9 @@ import (
 )
 
 type sessionPayload struct {
-	UserID       string   `json:"user_id"`
+	UserID       string   `json:"userId"`
 	Roles        []string `json:"roles"`
-	RefreshToken string   `json:"refresh_token"`
+	RefreshToken string   `json:"refreshToken"`
 }
 
 // SessionStore encapsulates Redis interactions for authentication sessions.
