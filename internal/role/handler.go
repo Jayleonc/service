@@ -11,13 +11,6 @@ import (
 	"github.com/Jayleonc/service/pkg/response"
 )
 
-type assignment struct {
-	ID          uuid.UUID `gorm:"type:uuid;primaryKey"`
-	UserID      uuid.UUID `gorm:"type:uuid;index"`
-	Role        string
-	DateCreated time.Time `gorm:"column:date_created;autoCreateTime"`
-}
-
 // Handler demonstrates the lightweight, singleton-driven development path.
 type Handler struct{}
 

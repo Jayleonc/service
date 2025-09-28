@@ -25,7 +25,7 @@ var (
 func main() {
 	var (
 		nameArg = flag.String("name", "", "module name (lowercase, underscores allowed)")
-		typeArg = flag.String("type", "", "module type: simple or structured")
+		typeArg = flag.String("type", "simple", "module type: simple or structured")
 		rootArg = flag.String("root", ".", "project root directory")
 	)
 

@@ -27,6 +27,11 @@ func (r *Repository) Update(ctx context.Context, user *User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
+// Delete removes a user record by ID.
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&User{}, "id = ?", id).Error
+}
+
 // Get retrieves a user by ID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*User, error) {
 	var user User
