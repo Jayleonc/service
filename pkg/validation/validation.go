@@ -11,21 +11,21 @@ var (
 	mu      sync.RWMutex
 )
 
-// Init creates a new validator instance and stores it as the default singleton.
+// Init 创建新的校验器实例并设置为全局单例。
 func Init() *validator.Validate {
 	v := validator.New()
 	SetDefault(v)
 	return v
 }
 
-// SetDefault stores v as the global validator instance.
+// SetDefault 将校验器设为全局默认实例。
 func SetDefault(v *validator.Validate) {
 	mu.Lock()
 	defer mu.Unlock()
 	current = v
 }
 
-// Default returns the globally configured validator instance.
+// Default 返回当前配置的全局校验器。
 func Default() *validator.Validate {
 	mu.RLock()
 	defer mu.RUnlock()

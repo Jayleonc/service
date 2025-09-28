@@ -549,7 +549,7 @@ import (
         "github.com/gin-gonic/gin"
 
         "github.com/Jayleonc/service/internal/feature"
-        "github.com/Jayleonc/service/pkg/response"
+        "github.com/Jayleonc/service/pkg/ginx/response"
         "github.com/Jayleonc/service/pkg/xerr"
 )
 
@@ -678,7 +678,7 @@ import (
         "github.com/gin-gonic/gin"
 
         "github.com/Jayleonc/service/internal/feature"
-        "github.com/Jayleonc/service/pkg/response"
+        "github.com/Jayleonc/service/pkg/ginx/response"
         "github.com/Jayleonc/service/pkg/xerr"
 )
 

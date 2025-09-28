@@ -8,7 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// Config describes Redis connection options for the cache layer.
+// Config 描述缓存层使用的 Redis 连接参数。
 type Config struct {
 	Addr     string
 	Password string
@@ -20,7 +20,7 @@ var (
 	current *redis.Client
 )
 
-// Init creates a Redis client, validates the connection and stores it as the default instance.
+// Init 创建 Redis 客户端、校验连接并将其设置为默认实例。
 func Init(cfg Config) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,
@@ -40,14 +40,14 @@ func Init(cfg Config) (*redis.Client, error) {
 	return client, nil
 }
 
-// SetDefault records client as the global cache instance.
+// SetDefault 将客户端记录为全局默认的缓存实例。
 func SetDefault(client *redis.Client) {
 	mu.Lock()
 	defer mu.Unlock()
 	current = client
 }
 
-// Default returns the configured Redis client, if one has been initialised.
+// Default 返回已经初始化的全局 Redis 客户端。
 func Default() *redis.Client {
 	mu.RLock()
 	defer mu.RUnlock()

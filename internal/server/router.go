@@ -17,7 +17,7 @@ import (
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
-// RouterConfig defines the common HTTP middleware configuration shared by all features.
+// RouterConfig 定义所有模块共享的 HTTP 中间件配置。
 type RouterConfig struct {
 	Logger           *slog.Logger
 	Registry         *prometheus.Registry
@@ -26,14 +26,14 @@ type RouterConfig struct {
 	Guards           *feature.RouteGuards
 }
 
-// Router encapsulates the Gin engine and exposes feature-oriented registration helpers.
+// Router 封装 Gin 引擎并提供面向功能模块的注册能力。
 type Router struct {
 	engine *gin.Engine
 	api    *gin.RouterGroup
 	guards *feature.RouteGuards
 }
 
-// NewRouter constructs the base Gin engine and returns a feature-aware router.
+// NewRouter 构建基础 Gin 引擎并返回具备模块注册能力的路由器。
 func NewRouter(cfg RouterConfig) *Router {
 	gin.SetMode(gin.DebugMode)
 
@@ -68,12 +68,12 @@ func NewRouter(cfg RouterConfig) *Router {
 	}
 }
 
-// Engine exposes the underlying Gin engine for server start-up.
+// Engine 返回底层 Gin 引擎供启动使用。
 func (r *Router) Engine() *gin.Engine {
 	return r.engine
 }
 
-// RegisterModule mounts the provided feature routes under the shared "/v1" API group.
+// RegisterModule 将功能模块的路由挂载到共享的 /v1 API 分组。
 func (r *Router) RegisterModule(pathPrefix string, routes feature.ModuleRoutes) {
 	if r == nil || r.api == nil {
 		return

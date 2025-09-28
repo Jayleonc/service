@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// Config holds authentication configuration.
+// Config 表示认证相关的配置。
 type Config struct {
 	Issuer     string
 	Audience   string
@@ -17,7 +17,7 @@ type Config struct {
 	RefreshTTL time.Duration
 }
 
-// Manager handles JWT creation and validation.
+// Manager 负责创建和校验 JWT。
 type Manager struct {
 	issuer     string
 	audience   string
@@ -26,7 +26,7 @@ type Manager struct {
 	refreshTTL time.Duration
 }
 
-// Claims represents a JWT claim set.
+// Claims 表示 JWT 的载荷集合。
 type Claims struct {
 	SessionID string   `json:"sid"`
 	Subject   string   `json:"sub"`
@@ -39,7 +39,7 @@ var (
 	current *Manager
 )
 
-// NewManager constructs a new Manager.
+// NewManager 根据配置构造一个新的 Manager。
 func NewManager(cfg Config) (*Manager, error) {
 	if cfg.Secret == "" {
 		return nil, errors.New("auth: secret is required")
@@ -54,7 +54,7 @@ func NewManager(cfg Config) (*Manager, error) {
 	}, nil
 }
 
-// Init constructs a new manager and stores it as the global instance.
+// Init 创建全局可用的认证管理器实例并完成初始化。
 func Init(cfg Config) (*Manager, error) {
 	manager, err := NewManager(cfg)
 	if err != nil {
@@ -64,21 +64,21 @@ func Init(cfg Config) (*Manager, error) {
 	return manager, nil
 }
 
-// SetDefault records manager as the global authentication manager.
+// SetDefault 将传入的 manager 记录为全局默认的认证管理器。
 func SetDefault(manager *Manager) {
 	mu.Lock()
 	defer mu.Unlock()
 	current = manager
 }
 
-// Default returns the global authentication manager, if one has been configured.
+// Default 返回已经配置的全局认证管理器。
 func Default() *Manager {
 	mu.RLock()
 	defer mu.RUnlock()
 	return current
 }
 
-// GenerateToken creates a signed JWT using the provided subject and roles.
+// GenerateToken 根据会话 ID、主体和角色生成签名后的 JWT。
 func (m *Manager) GenerateToken(sessionID string, subject string, roles []string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	exp := now.Add(m.accessTTL)
@@ -104,7 +104,7 @@ func (m *Manager) GenerateToken(sessionID string, subject string, roles []string
 	return signed, exp, nil
 }
 
-// ParseToken validates the JWT string and returns the claims.
+// ParseToken 校验传入的 JWT 字符串并返回解析后的载荷。
 func (m *Manager) ParseToken(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 		return m.secret, nil
@@ -125,12 +125,12 @@ func (m *Manager) ParseToken(tokenStr string) (*Claims, error) {
 	return claims, nil
 }
 
-// AccessTTL returns the configured lifespan for access tokens.
+// AccessTTL 返回访问令牌的有效期配置。
 func (m *Manager) AccessTTL() time.Duration {
 	return m.accessTTL
 }
 
-// RefreshTTL returns the configured lifespan for refresh tokens.
+// RefreshTTL 返回刷新令牌的有效期配置。
 func (m *Manager) RefreshTTL() time.Duration {
 	return m.refreshTTL
 }

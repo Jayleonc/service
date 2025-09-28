@@ -7,7 +7,7 @@ import (
 
 const contextAuthContextKey = "auth.context"
 
-// AuthContext captures the authenticated user context shared between features.
+// AuthContext 描述功能模块之间共享的认证上下文。
 type AuthContext struct {
 	SessionID    string
 	UserID       uuid.UUID
@@ -15,12 +15,12 @@ type AuthContext struct {
 	RefreshToken string
 }
 
-// SetAuthContext stores the authenticated context data into the Gin context.
+// SetAuthContext 将认证上下文写入 Gin Context。
 func SetAuthContext(c *gin.Context, ctx AuthContext) {
 	c.Set(contextAuthContextKey, ctx)
 }
 
-// GetAuthContext retrieves the authenticated context from the Gin context.
+// GetAuthContext 从 Gin Context 中读取认证上下文。
 func GetAuthContext(c *gin.Context) (AuthContext, bool) {
 	value, ok := c.Get(contextAuthContextKey)
 	if !ok {
@@ -35,7 +35,7 @@ func GetAuthContext(c *gin.Context) (AuthContext, bool) {
 	return session, true
 }
 
-// MustGetAuthContext retrieves the authenticated context or panics if it is missing.
+// MustGetAuthContext 获取认证上下文，若不存在则直接 panic。
 func MustGetAuthContext(c *gin.Context) AuthContext {
 	session, ok := GetAuthContext(c)
 	if !ok {

@@ -5,10 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Jayleonc/service/pkg/logger"
+	"github.com/Jayleonc/service/pkg/observe/logger"
 )
 
-// InjectLogger attaches the slog logger to the request context.
+// InjectLogger 将 slog 日志器注入到请求上下文中。
 func InjectLogger(log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := logger.WithContext(c.Request.Context(), log)

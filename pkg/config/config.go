@@ -10,64 +10,96 @@ import (
 	"github.com/spf13/viper"
 )
 
-// App contains all configuration for the service.
+// App 聚合了服务运行所需的全部配置项。
 type App struct {
-	Server    ServerConfig    `mapstructure:"server"`
-	Database  DatabaseConfig  `mapstructure:"database"`
-	Auth      AuthConfig      `mapstructure:"auth"`
-	Log       LogConfig       `mapstructure:"log"`
+	// Server 控制 HTTP 服务监听与超时配置。
+	Server ServerConfig `mapstructure:"server"`
+	// Database 描述数据库驱动、连接信息与附加参数。
+	Database DatabaseConfig `mapstructure:"database"`
+	// Auth 定义认证系统的签发者、受众和令牌生命周期。
+	Auth AuthConfig `mapstructure:"auth"`
+	// Log 控制日志级别与输出格式。
+	Log LogConfig `mapstructure:"log"`
+	// Telemetry 控制链路追踪导出行为。
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
-	Redis     RedisConfig     `mapstructure:"redis"`
+	// Redis 描述缓存服务的连接参数。
+	Redis RedisConfig `mapstructure:"redis"`
 }
 
-// ServerConfig controls HTTP server behaviour.
+// ServerConfig 控制 HTTP 服务器的基础行为。
 type ServerConfig struct {
-	Host         string        `mapstructure:"host"`
-	Port         int           `mapstructure:"port"`
-	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
+	// Host 指定服务监听的主机地址。
+	Host string `mapstructure:"host"`
+	// Port 指定 HTTP 服务监听端口。
+	Port int `mapstructure:"port"`
+	// ReadTimeout 配置请求读取阶段的超时时间。
+	ReadTimeout time.Duration `mapstructure:"read_timeout"`
+	// WriteTimeout 配置响应写入阶段的超时时间。
 	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 }
 
-// DatabaseConfig represents Postgres configuration for GORM.
+// DatabaseConfig 描述使用 GORM 连接数据库所需的配置。
 type DatabaseConfig struct {
-	Driver   string            `mapstructure:"driver"`
-	Host     string            `mapstructure:"host"`
-	Port     int               `mapstructure:"port"`
-	User     string            `mapstructure:"user"`
-	Password string            `mapstructure:"password"`
-	Name     string            `mapstructure:"name"`
-	SSLMode  string            `mapstructure:"sslmode"`
-	Params   map[string]string `mapstructure:"params"`
+	// Driver 指定数据库驱动类型（postgres、mysql 等）。
+	Driver string `mapstructure:"driver"`
+	// Host 指定数据库主机地址。
+	Host string `mapstructure:"host"`
+	// Port 指定数据库端口。
+	Port int `mapstructure:"port"`
+	// User 指定连接数据库使用的用户名。
+	User string `mapstructure:"user"`
+	// Password 指定连接数据库使用的密码。
+	Password string `mapstructure:"password"`
+	// Name 指定默认数据库名称。
+	Name string `mapstructure:"name"`
+	// SSLMode 定义 PostgreSQL 的 SSL 模式。
+	SSLMode string `mapstructure:"sslmode"`
+	// Params 用于附加自定义连接参数。
+	Params map[string]string `mapstructure:"params"`
 }
 
-// AuthConfig holds authentication configuration.
+// AuthConfig 定义认证相关的配置。
 type AuthConfig struct {
-	Issuer     string        `mapstructure:"issuer"`
-	Audience   string        `mapstructure:"audience"`
-	Secret     string        `mapstructure:"secret"`
-	AccessTTL  time.Duration `mapstructure:"access_ttl"`
+	// Issuer 为签发的令牌声明发行方。
+	Issuer string `mapstructure:"issuer"`
+	// Audience 指定令牌可接受的受众。
+	Audience string `mapstructure:"audience"`
+	// Secret 配置签名对称密钥。
+	Secret string `mapstructure:"secret"`
+	// AccessTTL 定义访问令牌的有效期。
+	AccessTTL time.Duration `mapstructure:"access_ttl"`
+	// RefreshTTL 定义刷新令牌的有效期。
 	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
 }
 
-// LogConfig configures structured logging.
+// LogConfig 控制结构化日志的输出方式。
 type LogConfig struct {
-	Level  string `mapstructure:"level"`
-	Pretty bool   `mapstructure:"pretty"`
+	// Level 指定日志级别。
+	Level string `mapstructure:"level"`
+	// Pretty 指定是否使用更易读的文本格式输出。
+	Pretty bool `mapstructure:"pretty"`
 }
 
-// TelemetryConfig configures tracing exporters.
+// TelemetryConfig 描述链路追踪导出配置。
 type TelemetryConfig struct {
+	// ServiceName 指定上报时使用的服务名称。
 	ServiceName string `mapstructure:"service_name"`
-	Enabled     bool   `mapstructure:"enabled"`
-	Endpoint    string `mapstructure:"endpoint"`
+	// Enabled 控制是否启用链路追踪。
+	Enabled bool `mapstructure:"enabled"`
+	// Endpoint 指定 OTLP 采集端点地址。
+	Endpoint string `mapstructure:"endpoint"`
 }
 
-// RedisConfig describes the cache connection options.
+// RedisConfig 描述缓存使用的 Redis 连接参数。
 type RedisConfig struct {
-	Addr     string `mapstructure:"addr"`
+	// Addr 指定 Redis 服务地址。
+	Addr string `mapstructure:"addr"`
+	// Username 指定连接使用的用户名。
 	Username string `mapstructure:"username"`
+	// Password 指定连接使用的密码。
 	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
+	// DB 指定选择的数据库编号。
+	DB int `mapstructure:"db"`
 }
 
 var (
@@ -76,7 +108,7 @@ var (
 	set    bool
 )
 
-// Load reads configuration from the environment and optional CLI args.
+// Load 从环境变量与可选的 CLI 参数中读取配置。
 func Load(_ context.Context, _ []string) (App, error) {
 	v := viper.New()
 	v.SetDefault("server.host", "0.0.0.0")
@@ -133,7 +165,7 @@ func Load(_ context.Context, _ []string) (App, error) {
 	return cfg, nil
 }
 
-// Init loads the configuration and stores it as the global instance.
+// Init 加载配置并注册全局配置实例。
 func Init(ctx context.Context, args []string) (App, error) {
 	cfg, err := Load(ctx, args)
 	if err != nil {
@@ -143,7 +175,7 @@ func Init(ctx context.Context, args []string) (App, error) {
 	return cfg, nil
 }
 
-// Set stores cfg as the global configuration instance.
+// Set 将 cfg 设为全局配置实例。
 func Set(cfg App) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -151,14 +183,14 @@ func Set(cfg App) {
 	set = true
 }
 
-// Get retrieves the global configuration instance and whether it is set.
+// Get 返回全局配置实例及其是否已设置。
 func Get() (App, bool) {
 	mu.RLock()
 	defer mu.RUnlock()
 	return global, set
 }
 
-// MustGet returns the global configuration or panics if it has not been initialised.
+// MustGet 返回全局配置，若未初始化则直接 panic。
 func MustGet() App {
 	if cfg, ok := Get(); ok {
 		return cfg

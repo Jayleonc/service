@@ -16,12 +16,12 @@ import (
 	"github.com/Jayleonc/service/pkg/config"
 )
 
-// RouteRegistrar exposes the capability needed by features to register their HTTP endpoints.
+// RouteRegistrar 定义功能模块注册 HTTP 路由所需的能力。
 type RouteRegistrar interface {
 	RegisterModule(pathPrefix string, routes ModuleRoutes)
 }
 
-// Dependencies captures the shared infrastructure that features can leverage during registration.
+// Dependencies 描述模块注册阶段可复用的通用基础设施。
 type Dependencies struct {
 	Logger    *slog.Logger
 	DB        *gorm.DB
@@ -35,7 +35,7 @@ type Dependencies struct {
 	Guards    *RouteGuards
 }
 
-// Require ensures that the provided dependency names are non-nil pointer fields.
+// Require 校验给定的依赖字段是否已经注入。
 func (d Dependencies) Require(names ...string) error {
 	if len(names) == 0 {
 		return nil
@@ -56,17 +56,17 @@ func (d Dependencies) Require(names ...string) error {
 				return fmt.Errorf("dependency %q is required", name)
 			}
 		default:
-			// Non-nilable types are ignored as they cannot be nil.
+			// 非指针类型无法判空，直接跳过。
 		}
 	}
 
 	return nil
 }
 
-// Registrar declares the signature that features must implement to self-register.
+// Registrar 定义功能模块对外暴露的注册函数签名。
 type Registrar func(context.Context, Dependencies) error
 
-// Entry associates a human-friendly name with a registrar implementation.
+// Entry 关联模块名称与对应的注册函数。
 type Entry struct {
 	Name      string
 	Registrar Registrar

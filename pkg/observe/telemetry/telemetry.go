@@ -11,14 +11,14 @@ import (
 	"go.opentelemetry.io/otel/semconv/v1.24.0"
 )
 
-// Config controls OTLP tracing initialisation.
+// Config 用于控制 OTLP 链路追踪的初始化行为。
 type Config struct {
 	ServiceName string
 	Endpoint    string
 	Enabled     bool
 }
 
-// Provider wraps the tracer provider shutdown hook.
+// Provider 封装追踪提供器的关闭逻辑。
 type Provider struct {
 	shutdown func(context.Context) error
 }
@@ -28,7 +28,7 @@ var (
 	provider *Provider
 )
 
-// NewProvider configures tracing based on cfg.
+// NewProvider 根据配置初始化链路追踪。
 func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
 	if !cfg.Enabled {
 		return &Provider{}, nil
@@ -56,7 +56,7 @@ func NewProvider(ctx context.Context, cfg Config) (*Provider, error) {
 	return &Provider{shutdown: tp.Shutdown}, nil
 }
 
-// Init constructs a provider and stores it globally.
+// Init 构造追踪提供器并注册为全局实例。
 func Init(ctx context.Context, cfg Config) (*Provider, error) {
 	p, err := NewProvider(ctx, cfg)
 	if err != nil {
@@ -66,21 +66,21 @@ func Init(ctx context.Context, cfg Config) (*Provider, error) {
 	return p, nil
 }
 
-// SetDefault records p as the global telemetry provider.
+// SetDefault 将 p 记录为全局默认的链路追踪提供器。
 func SetDefault(p *Provider) {
 	mu.Lock()
 	defer mu.Unlock()
 	provider = p
 }
 
-// Default returns the global telemetry provider.
+// Default 返回当前的全局链路追踪提供器。
 func Default() *Provider {
 	mu.RLock()
 	defer mu.RUnlock()
 	return provider
 }
 
-// Shutdown gracefully stops the underlying tracer provider.
+// Shutdown 优雅地关闭底层的追踪提供器。
 func (p *Provider) Shutdown(ctx context.Context) error {
 	if p == nil || p.shutdown == nil {
 		return nil

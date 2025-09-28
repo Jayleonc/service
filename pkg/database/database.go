@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Config represents Postgres configuration for GORM.
+// Config 表示用于 GORM 的数据库连接配置。
 type Config struct {
 	Driver   string
 	Host     string
@@ -29,7 +29,7 @@ var (
 	current *gorm.DB
 )
 
-// New returns a configured GORM database connection.
+// New 根据配置返回一个可用的 GORM 数据库连接。
 func New(cfg Config) (*gorm.DB, error) {
 	driver := strings.TrimSpace(cfg.Driver)
 	if driver == "" {
@@ -172,7 +172,7 @@ func buildMySQLDSN(cfg Config) string {
 	}
 }
 
-// Init constructs a database connection and records it as the global instance.
+// Init 构建数据库连接并将其记录为全局实例。
 func Init(cfg Config) (*gorm.DB, error) {
 	db, err := New(cfg)
 	if err != nil {
@@ -182,14 +182,14 @@ func Init(cfg Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-// SetDefault stores db as the global database connection.
+// SetDefault 将 db 设置为全局可复用的数据库连接。
 func SetDefault(db *gorm.DB) {
 	mu.Lock()
 	defer mu.Unlock()
 	current = db
 }
 
-// Default returns the global database connection, if one has been initialised.
+// Default 返回已经初始化的全局数据库连接。
 func Default() *gorm.DB {
 	mu.RLock()
 	defer mu.RUnlock()

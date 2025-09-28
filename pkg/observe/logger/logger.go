@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// Config holds logging configuration.
+// Config 表示日志记录相关的配置。
 type Config struct {
 	Level  string
 	Pretty bool
@@ -19,7 +19,7 @@ var (
 	current *slog.Logger
 )
 
-// New constructs a slog.Logger based on the provided config.
+// New 根据配置构造一个 slog.Logger 实例。
 func New(cfg Config) *slog.Logger {
 	var lvl slog.Level
 	switch strings.ToLower(cfg.Level) {
@@ -42,14 +42,14 @@ func New(cfg Config) *slog.Logger {
 	return slog.New(handler)
 }
 
-// Init constructs a logger from cfg and stores it as the global instance.
+// Init 使用给定配置创建日志记录器并设置为全局实例。
 func Init(cfg Config) *slog.Logger {
 	log := New(cfg)
 	SetDefault(log)
 	return log
 }
 
-// SetDefault records log as the global logger and updates slog's default logger.
+// SetDefault 将日志记录器设为全局默认值，并同步更新 slog 的默认日志器。
 func SetDefault(log *slog.Logger) {
 	if log == nil {
 		return
@@ -60,7 +60,7 @@ func SetDefault(log *slog.Logger) {
 	slog.SetDefault(log)
 }
 
-// FromContext returns a logger stored in the context, or the default logger if missing.
+// FromContext 返回上下文中保存的日志记录器，没有时回退到全局默认值。
 func FromContext(ctx context.Context) *slog.Logger {
 	if ctx == nil {
 		return Default()
@@ -73,12 +73,12 @@ func FromContext(ctx context.Context) *slog.Logger {
 	return Default()
 }
 
-// WithContext returns a context that stores the logger for retrieval in handlers.
+// WithContext 将日志记录器写入上下文，便于在处理链中提取。
 func WithContext(ctx context.Context, log *slog.Logger) context.Context {
 	return context.WithValue(ctx, ctxKey{}, log)
 }
 
-// Default returns the global logger if configured, otherwise slog.Default().
+// Default 返回全局日志记录器；若未设置，则返回 slog.Default()。
 func Default() *slog.Logger {
 	mu.RLock()
 	defer mu.RUnlock()

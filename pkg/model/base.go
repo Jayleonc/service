@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Base defines common timestamp fields for database models.
+// Base 定义了数据库模型常见的时间戳字段。
 type Base struct {
 	CreatedAt time.Time      `json:"createdAt" gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt time.Time      `json:"updatedAt" gorm:"column:updated_at;autoUpdateTime"`
