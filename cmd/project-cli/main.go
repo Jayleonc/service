@@ -215,12 +215,14 @@ func createFeature(root, name, featureType string) error {
 		return fmt.Errorf("create feature directory: %w", err)
 	}
 
+	display := displayName(name)
 	data := featureTemplateData{
 		Package:     name,
 		Name:        name,
 		Route:       "/" + name,
-		DisplayName: displayName(name),
-		LogMessage:  fmt.Sprintf("%s feature initialised", displayName(name)),
+		DisplayName: display,
+		LogMessage:  fmt.Sprintf("%s feature initialised", display),
+		EntityName:  strings.ReplaceAll(display, " ", ""),
 	}
 
 	files := map[string][]byte{}
@@ -260,6 +262,7 @@ type featureTemplateData struct {
 	Route       string
 	DisplayName string
 	LogMessage  string
+	EntityName  string
 }
 
 func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
@@ -620,7 +623,17 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 
 const structuredRepositoryTemplate = `package {{.Package}}
 
-import "gorm.io/gorm"
+import (
+        "github.com/google/uuid"
+        "gorm.io/gorm"
+
+        "github.com/Jayleonc/service/pkg/model"
+)
+
+type {{.EntityName}} struct {
+        ID uuid.UUID ` + "`gorm:\"type:uuid;primaryKey\"`" + `
+        model.Base
+}
 
 type Repository struct {
         db *gorm.DB

@@ -279,7 +279,7 @@ func (s *Service) DeleteUser(ctx context.Context, req DeleteUserRequest) error {
 }
 
 // ListUsers 使用统一分页返回用户列表
-func (s *Service) ListUsers(ctx context.Context, req ListUsersRequest) (*response.PageResult, error) {
+func (s *Service) ListUsers(ctx context.Context, req ListUsersRequest) (*response.PageResult[Profile], error) {
 	query := s.repo.Query(ctx)
 	if req.Name != "" {
 		query = query.Where("name LIKE ?", "%"+req.Name+"%")
@@ -288,19 +288,22 @@ func (s *Service) ListUsers(ctx context.Context, req ListUsersRequest) (*respons
 		query = query.Where("email LIKE ?", "%"+req.Email+"%")
 	}
 
-	var users []User
-	pageResult, err := paginator.Paginate(query, &req.Pagination, &users)
+	pageResult, err := paginator.Paginate[User](query, &req.Pagination)
 	if err != nil {
 		return nil, err
 	}
 
-	profiles := make([]Profile, 0, len(users))
-	for _, user := range users {
+	profiles := make([]Profile, 0, len(pageResult.List))
+	for _, user := range pageResult.List {
 		profiles = append(profiles, toProfile(user))
 	}
 
-	pageResult.List = profiles
-	return pageResult, nil
+	return &response.PageResult[Profile]{
+		List:     profiles,
+		Total:    pageResult.Total,
+		Page:     pageResult.Page,
+		PageSize: pageResult.PageSize,
+	}, nil
 }
 
 // AssignRoles 管理员分配角色
@@ -373,23 +376,23 @@ func roleNames(roles []role.Role) []string {
 
 // Profile 表示返回给客户端的安全用户信息。
 type Profile struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email"`
-	Roles       []string  `json:"roles"`
-	Phone       string    `json:"phone"`
-	DateCreated time.Time `json:"date_created"`
-	DateUpdated time.Time `json:"date_updated"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Roles     []string  `json:"roles"`
+	Phone     string    `json:"phone"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func toProfile(u User) Profile {
 	return Profile{
-		ID:          u.ID,
-		Name:        u.Name,
-		Email:       u.Email,
-		Roles:       roleNames(u.Roles),
-		Phone:       u.Phone,
-		DateCreated: u.DateCreated,
-		DateUpdated: u.DateUpdated,
+		ID:        u.ID,
+		Name:      u.Name,
+		Email:     u.Email,
+		Roles:     roleNames(u.Roles),
+		Phone:     u.Phone,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
 	}
 }

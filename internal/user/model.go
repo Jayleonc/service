@@ -1,11 +1,10 @@
 package user
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 
 	"github.com/Jayleonc/service/internal/role"
+	"github.com/Jayleonc/service/pkg/model"
 )
 
 // User 用户实体
@@ -16,8 +15,7 @@ type User struct {
 	PasswordHash string      `gorm:"column:password_hash"`
 	Phone        string      `gorm:"size:64"`
 	Roles        []role.Role `gorm:"many2many:user_roles;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	DateCreated  time.Time   `gorm:"column:date_created;autoCreateTime"`
-	DateUpdated  time.Time   `gorm:"column:date_updated;autoUpdateTime"`
+	model.Base
 }
 
 func (u *User) TableName() string {
