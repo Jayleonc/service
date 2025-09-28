@@ -10,7 +10,7 @@ import (
 
 // App holds the initialized Gin engine and shared configuration for the service.
 type App struct {
-	Router *gin.Engine
+	Engine *gin.Engine
 	Config config.App
 	Logger *slog.Logger
 }
@@ -18,7 +18,7 @@ type App struct {
 // NewApp constructs an application instance that wraps the engine and configuration.
 func NewApp(router *gin.Engine, cfg config.App, logger *slog.Logger) *App {
 	return &App{
-		Router: router,
+		Engine: router,
 		Config: cfg,
 		Logger: logger,
 	}

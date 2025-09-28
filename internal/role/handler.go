@@ -14,6 +14,59 @@ import (
 // Handler demonstrates the lightweight, singleton-driven development path.
 type Handler struct{}
 
+type replaceRolesRequest struct {
+	Roles []string `json:"roles" binding:"required,min=1,dive,required"`
+}
+
+func (h *Handler) list(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 4011, "invalid user id")
+		return
+	}
+
+	roles, err := List(c.Request.Context(), userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 4012, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"user_id": userID,
+		"roles":   roles,
+	})
+}
+
+func (h *Handler) replace(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 4021, "invalid user id")
+		return
+	}
+
+	var req replaceRolesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 4022, "invalid request payload")
+		return
+	}
+
+	if err := Assign(c.Request.Context(), userID, req.Roles); err != nil {
+		response.Error(c, http.StatusInternalServerError, 4023, err.Error())
+		return
+	}
+
+	roles, err := List(c.Request.Context(), userID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 4024, err.Error())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"user_id": userID,
+		"roles":   roles,
+	})
+}
+
 // NewHandler constructs a Handler without any explicit dependency wiring.
 func NewHandler() *Handler {
 	return &Handler{}
@@ -22,6 +75,8 @@ func NewHandler() *Handler {
 // RegisterRoutes attaches the role endpoints to the shared API group.
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/roles", h.create)
+	rg.GET("/roles/:user_id", h.list)
+	rg.PUT("/roles/:user_id", h.replace)
 }
 
 type createRoleRequest struct {
@@ -48,7 +103,7 @@ func (h *Handler) create(c *gin.Context) {
 		return
 	}
 
-	record := assignment{ID: uuid.New(), UserID: userID, Role: req.Role, DateCreated: time.Now().UTC()}
+	record := Role{ID: uuid.New(), UserID: userID, Role: req.Role, DateCreated: time.Now().UTC()}
 	if err := db.WithContext(c.Request.Context()).Create(&record).Error; err != nil {
 		response.Error(c, http.StatusInternalServerError, 4004, err.Error())
 		return

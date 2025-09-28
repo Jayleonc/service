@@ -26,7 +26,7 @@ type RouterConfig struct {
 // NewRouter constructs the base Gin engine and returns both the engine and the
 // authenticated "/v1" API group used by modules.
 func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
-	gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.DebugMode)
 
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		validation.SetDefault(engine)
@@ -35,9 +35,9 @@ func NewRouter(cfg RouterConfig) (*gin.Engine, *gin.RouterGroup) {
 	}
 
 	r := gin.New()
+	r.Use(gin.Logger())
 	r.Use(middleware.InjectLogger(cfg.Logger))
 	r.Use(middleware.Recovery())
-	r.Use(middleware.Logging())
 
 	if cfg.Registry != nil {
 		r.Use(middleware.Metrics(cfg.Registry))

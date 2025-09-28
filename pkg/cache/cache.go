@@ -11,7 +11,6 @@ import (
 // Config describes Redis connection options for the cache layer.
 type Config struct {
 	Addr     string
-	Username string
 	Password string
 	DB       int
 }
@@ -25,7 +24,6 @@ var (
 func Init(cfg Config) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,
-		Username: cfg.Username,
 		Password: cfg.Password,
 		DB:       cfg.DB,
 	})

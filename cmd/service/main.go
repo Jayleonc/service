@@ -15,7 +15,7 @@ func main() {
 	}
 
 	addr := fmt.Sprintf("%s:%d", app.Config.Server.Host, app.Config.Server.Port)
-	if err := app.Router.Run(addr); err != nil {
+	if err := app.Engine.Run(addr); err != nil {
 		slog.Error("server exited", "error", err)
 	}
 }

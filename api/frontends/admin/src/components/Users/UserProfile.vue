@@ -18,6 +18,7 @@
           </v-col>
           <v-col cols="8">
             <user-homes :user-id="user.id" />
+            <user-roles :user-id="user.id" />
           </v-col>
         </v-card-text>
       </v-card>
@@ -27,9 +28,10 @@
 <script>
 import UserDetails from "../Users/UserDetails.vue";
 import UserHomes from "../Users/UserHomes.vue";
+import UserRoles from "../Users/UserRoles.vue";
 
 export default {
-  components: { UserDetails, UserHomes },
+  components: { UserDetails, UserHomes, UserRoles },
   props: {
     userId: {
       type: String,

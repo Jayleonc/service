@@ -21,13 +21,16 @@ import (
 func Bootstrap() (*App, error) {
 	ctx := context.Background()
 
+	// ======= 初始化配置 =======
 	cfg, err := config.Init(ctx, os.Args[1:])
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
+	// ======= 初始化日志 =======
 	log := logger.Init(logger.Config{Level: cfg.Log.Level, Pretty: cfg.Log.Pretty})
 
+	// ======= 初始化数据库 =======
 	db, err := database.Init(database.Config{
 		Driver:   cfg.Database.Driver,
 		Host:     cfg.Database.Host,
@@ -42,9 +45,9 @@ func Bootstrap() (*App, error) {
 		return nil, fmt.Errorf("connect database: %w", err)
 	}
 
+	// ======= 初始化缓存 Redis =======
 	cacheClient, err := cache.Init(cache.Config{
 		Addr:     cfg.Redis.Addr,
-		Username: cfg.Redis.Username,
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
@@ -52,8 +55,10 @@ func Bootstrap() (*App, error) {
 		return nil, fmt.Errorf("connect redis: %w", err)
 	}
 
+	// ======= 初始化指标检测 =======
 	registry := metrics.InitRegistry()
 
+	// ======= 初始化认证服务 =======
 	authManager, err := auth.Init(auth.Config{
 		Issuer:     cfg.Auth.Issuer,
 		Audience:   cfg.Auth.Audience,
@@ -65,6 +70,7 @@ func Bootstrap() (*App, error) {
 		return nil, fmt.Errorf("configure auth manager: %w", err)
 	}
 
+	// ======= 初始化指标检测 =======
 	if _, err := telemetry.Init(ctx, telemetry.Config{
 		ServiceName: cfg.Telemetry.ServiceName,
 		Endpoint:    cfg.Telemetry.Endpoint,
@@ -73,6 +79,7 @@ func Bootstrap() (*App, error) {
 		return nil, fmt.Errorf("setup telemetry: %w", err)
 	}
 
+	// ======= 路由注册 =======
 	router, api := NewRouter(RouterConfig{
 		Logger:           log,
 		Registry:         registry,

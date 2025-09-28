@@ -2,37 +2,50 @@
 import { createRouter, createWebHistory } from "vue-router";
 
 const routes = [
+  // Auth pages
+  {
+    path: "/login",
+    name: "Login",
+    component: () => import("@/views/Login.vue"),
+    meta: { transition: "fade" },
+  },
+  {
+    path: "/register",
+    name: "Register",
+    component: () => import("@/views/Register.vue"),
+    meta: { transition: "fade" },
+  },
+
+  // App pages (require auth)
   {
     path: "/",
     component: () => import("@/layouts/default/Default.vue"),
-    meta: { transition: "slide-right" },
+    meta: { transition: "slide-right", requiresAuth: true },
     children: [
       {
         path: "",
         name: "Users",
-        // route level code-splitting
-        // this generates a separate chunk (about.[hash].js) for this route
-        // which is lazy-loaded when the route is visited.
-        component: () =>
-          import(/* webpackChunkName: "users" */ "@/views/Users.vue"),
+        component: () => import(/* webpackChunkName: "users" */ "@/views/Users.vue"),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: "me",
+        name: "Me",
+        component: () => import("@/views/Me.vue"),
+        meta: { requiresAuth: true },
       },
     ],
   },
   {
     path: "/user-profile/:id",
     component: () => import("@/layouts/default/Default.vue"),
-    meta: { transition: "slide-right" },
+    meta: { transition: "slide-right", requiresAuth: true },
     children: [
       {
         path: "",
         name: "UserProfile",
-        // route level code-splitting
-        // this generates a separate chunk (about.[hash].js) for this route
-        // which is lazy-loaded when the route is visited.
-        component: () =>
-          import(
-            /* webpackChunkName: "userProfile" */ "@/views/UserProfile.vue"
-          ),
+        component: () => import(/* webpackChunkName: "userProfile" */ "@/views/UserProfile.vue"),
+        meta: { requiresAuth: true },
       },
     ],
   },

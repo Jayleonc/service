@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// User represents the persisted user entity.
+// User 用户实体
 type User struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
 	Name         string    `gorm:"size:255"`
@@ -18,7 +18,11 @@ type User struct {
 	DateUpdated  time.Time `gorm:"column:date_updated;autoUpdateTime"`
 }
 
-// Profile represents the safe user information returned to clients.
+func (u *User) TableName() string {
+	return "user"
+}
+
+// Profile 表示返回给客户端的安全用户信息。
 type Profile struct {
 	ID          uuid.UUID
 	Name        string

@@ -24,16 +24,16 @@ func Assign(ctx context.Context, userID uuid.UUID, roles []string) error {
 	cleaned := normalizeRoles(roles)
 
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).Delete(&assignment{}).Error; err != nil {
+		if err := tx.Where("user_id = ?", userID).Delete(&Role{}).Error; err != nil {
 			return err
 		}
 		if len(cleaned) == 0 {
 			return nil
 		}
 
-		records := make([]assignment, 0, len(cleaned))
+		records := make([]Role, 0, len(cleaned))
 		for _, roleName := range cleaned {
-			records = append(records, assignment{ID: uuid.New(), UserID: userID, Role: roleName})
+			records = append(records, Role{ID: uuid.New(), UserID: userID, Role: roleName})
 		}
 
 		return tx.Create(&records).Error
@@ -47,7 +47,7 @@ func List(ctx context.Context, userID uuid.UUID) ([]string, error) {
 		return nil, ErrUnavailable
 	}
 
-	var records []assignment
+	var records []Role
 	if err := db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		Order("date_created ASC").

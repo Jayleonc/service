@@ -22,7 +22,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 		return fmt.Errorf("role module requires the auth service to be initialised")
 	}
 
-	if err := db.WithContext(ctx).AutoMigrate(&assignment{}); err != nil {
+	if err := db.WithContext(ctx).AutoMigrate(&Role{}); err != nil {
 		return fmt.Errorf("run role migrations: %w", err)
 	}
 
