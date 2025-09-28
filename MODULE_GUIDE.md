@@ -1,6 +1,6 @@
 # Module Development Guide
 
-This service template embraces two complementary development paradigms so that teams can choose the right balance between delivery speed and long-term maintainability. Both styles plug into a shared application bootstrap layer implemented in [`internal/server`](internal/server), which assembles infrastructure in `bootstrap.go`, exposes lifecycle management in `app.go`, and routes requests through `router.go` before dispatching them to registered modules listed in `modules.go`.
+This service template embraces two complementary development paradigms so that teams can choose the right balance between delivery speed and long-term maintainability. Both styles plug into a shared application bootstrap layer implemented in [`internal/server`](internal/server), which assembles infrastructure in `bootstrap.go`, exposes lifecycle management in `app.go`, and routes requests through `router.go` before dispatching them via the feature contracts declared in [`internal/feature`](internal/feature).
 
 ## Why two paradigms?
 
@@ -27,9 +27,12 @@ The `auth` module highlights explicit wiring from repository to handler, making 
 
 ```go
 // internal/auth/register.go
-func Register(ctx context.Context, deps module.Dependencies) error {
+func Register(ctx context.Context, deps feature.Dependencies) error {
         if deps.DB == nil {
                 return fmt.Errorf("auth module requires a database instance")
+        }
+        if deps.Router == nil {
+                return fmt.Errorf("auth module requires the route registrar")
         }
 
         repo := NewRepository(deps.DB)
@@ -39,7 +42,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 
         svc := NewService(repo)
         handler := NewHandler(svc)
-        handler.RegisterRoutes(deps.API)
+        deps.Router.RegisterModule("/auth", handler.GetRoutes())
 
         if deps.Logger != nil {
                 deps.Logger.Info("auth module initialised", "pattern", "structured")
@@ -49,7 +52,7 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 }
 ```
 
-Dependencies flow in a single direction: `NewRepository` → `NewService` → `NewHandler`. Each layer is easy to test in isolation and only receives what it needs. The module depends on the shared router group exposed by the bootstrap layer, but everything else stays local.
+Dependencies flow in a single direction: `NewRepository` → `NewService` → `NewHandler`. Each layer is easy to test in isolation and only receives what it needs. The module depends on the shared router registrar exposed by the bootstrap layer, but everything else stays local.
 
 ## Simple pattern (role module)
 
@@ -104,7 +107,7 @@ make new-module
 The generator will:
 
 1. Create `internal/<name>/` with either the DI (repository/service/handler/register) or singleton (handler/register) template.
-2. Wire the module into [`internal/server/modules.go`](internal/server/modules.go) so it is registered automatically during bootstrap.
-3. Leave the bootstrap, router, and middleware untouched—new modules plug directly into the existing lifecycle.
+2. Wire the module into [`internal/app/bootstrap.go`](internal/app/bootstrap.go) so it is registered automatically during bootstrap.
+3. Leave the bootstrap, router, and middleware untouched—new modules plug directly into the existing lifecycle via `feature.Dependencies`.
 
-After scaffolding, fill in repository methods, flesh out services, and replace placeholder routes with real logic. The rest of the application (configuration, database, logger, metrics, telemetry) is already available through `module.Dependencies` or singleton helpers.
+After scaffolding, fill in repository methods, flesh out services, and replace placeholder routes with real logic. The rest of the application (configuration, database, logger, metrics, telemetry) is already available through `feature.Dependencies` or singleton helpers.
