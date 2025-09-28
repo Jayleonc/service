@@ -34,7 +34,7 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 	}
 
 	handler := NewHandler()
-	deps.Router.RegisterModule("", handler.GetRoutes())
+	deps.Router.RegisterModule("role", handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("role feature initialised", "pattern", "singleton")
