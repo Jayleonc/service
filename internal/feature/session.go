@@ -20,8 +20,8 @@ func SetAuthContext(c *gin.Context, ctx AuthContext) {
 	c.Set(contextAuthContextKey, ctx)
 }
 
-// AuthContextFromContext retrieves the authenticated context from the Gin context.
-func AuthContextFromContext(c *gin.Context) (AuthContext, bool) {
+// GetAuthContext retrieves the authenticated context from the Gin context.
+func GetAuthContext(c *gin.Context) (AuthContext, bool) {
 	value, ok := c.Get(contextAuthContextKey)
 	if !ok {
 		return AuthContext{}, false
@@ -33,4 +33,13 @@ func AuthContextFromContext(c *gin.Context) (AuthContext, bool) {
 	}
 
 	return session, true
+}
+
+// MustGetAuthContext retrieves the authenticated context or panics if it is missing.
+func MustGetAuthContext(c *gin.Context) AuthContext {
+	session, ok := GetAuthContext(c)
+	if !ok {
+		panic("feature: auth context not available")
+	}
+	return session
 }

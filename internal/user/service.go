@@ -19,15 +19,6 @@ import (
 	"github.com/Jayleonc/service/pkg/response"
 )
 
-var (
-	// ErrEmailExists indicates that the email is already registered.
-	ErrEmailExists = errors.New("user: email already exists")
-	// ErrInvalidCredentials represents invalid login credentials.
-	ErrInvalidCredentials = errors.New("user: invalid credentials")
-	// ErrRolesRequired indicates that at least one role must be assigned.
-	ErrRolesRequired = errors.New("user: at least one role must be assigned")
-)
-
 // Service coordinates user operations.
 type Service struct {
 	repo        *Repository
@@ -120,7 +111,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, e
 	}
 
 	user := &User{
-		ID:           uuid.New(),
+		ID:           uuid.Must(uuid.NewV7()),
 		Name:         input.Name,
 		Email:        strings.ToLower(input.Email),
 		PasswordHash: string(passwordHash),
@@ -232,7 +223,7 @@ func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest) (Profil
 	}
 
 	user := &User{
-		ID:           uuid.New(),
+		ID:           uuid.Must(uuid.NewV7()),
 		Name:         req.Name,
 		Email:        strings.ToLower(req.Email),
 		PasswordHash: string(passwordHash),

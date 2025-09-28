@@ -547,6 +547,11 @@ import (
 
         "github.com/Jayleonc/service/internal/feature"
         "github.com/Jayleonc/service/pkg/response"
+        "github.com/Jayleonc/service/pkg/xerr"
+)
+
+var (
+        errEchoInvalidPayload = xerr.New(1, "invalid request payload")
 )
 
 type Handler struct{}
@@ -575,7 +580,7 @@ func (h *Handler) echo(c *gin.Context) {
                 Message string ` + "`json:\"message\" binding:\"required\"`" + `
         }
         if err := c.ShouldBindJSON(&req); err != nil {
-                response.Error(c, http.StatusBadRequest, 1, "invalid request payload")
+                response.Error(c, http.StatusBadRequest, errEchoInvalidPayload)
                 return
         }
 
@@ -594,8 +599,8 @@ import (
 )
 
 func Register(ctx context.Context, deps feature.Dependencies) error {
-        if deps.Router == nil {
-                return fmt.Errorf("{{.Name}} feature requires a route registrar")
+        if err := deps.Require("Router"); err != nil {
+                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
         }
 
         if auth.DefaultService() == nil {
@@ -661,6 +666,13 @@ import (
 
         "github.com/Jayleonc/service/internal/feature"
         "github.com/Jayleonc/service/pkg/response"
+        "github.com/Jayleonc/service/pkg/xerr"
+)
+
+var (
+        errServiceNotConfigured = xerr.New(1, "service not configured")
+        errProcessInvalidBody   = xerr.New(2, "invalid request payload")
+        errProcessFailed        = xerr.New(3, "failed to process request")
 )
 
 type Handler struct {
@@ -688,7 +700,7 @@ func (h *Handler) ping(c *gin.Context) {
 
 func (h *Handler) process(c *gin.Context) {
         if h.service == nil {
-                response.Error(c, http.StatusInternalServerError, 1, "service not configured")
+                response.Error(c, http.StatusInternalServerError, errServiceNotConfigured)
                 return
         }
 
@@ -696,12 +708,12 @@ func (h *Handler) process(c *gin.Context) {
                 Message string ` + "`json:\"message\" binding:\"required\"`" + `
         }
         if err := c.ShouldBindJSON(&req); err != nil {
-                response.Error(c, http.StatusBadRequest, 2, "invalid request payload")
+                response.Error(c, http.StatusBadRequest, errProcessInvalidBody)
                 return
         }
 
         if err := h.service.Ping(c.Request.Context()); err != nil {
-                response.Error(c, http.StatusInternalServerError, 3, err.Error())
+                response.Error(c, http.StatusInternalServerError, errProcessFailed)
                 return
         }
 
@@ -720,11 +732,8 @@ import (
 )
 
 func Register(ctx context.Context, deps feature.Dependencies) error {
-        if deps.DB == nil {
-                return fmt.Errorf("{{.Name}} feature requires a database instance")
-        }
-        if deps.Router == nil {
-                return fmt.Errorf("{{.Name}} feature requires a route registrar")
+        if err := deps.Require("DB", "Router"); err != nil {
+                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
         }
 
         if auth.DefaultService() == nil {

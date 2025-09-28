@@ -11,8 +11,8 @@ import (
 
 // Register initialises the role feature following the singleton-friendly path.
 func Register(ctx context.Context, deps feature.Dependencies) error {
-	if deps.Router == nil {
-		return fmt.Errorf("role feature requires a route registrar")
+	if err := deps.Require("Router"); err != nil {
+		return fmt.Errorf("role feature dependencies: %w", err)
 	}
 
 	if database.Default() == nil {

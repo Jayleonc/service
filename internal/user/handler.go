@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -45,18 +46,17 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 func (h *Handler) register(c *gin.Context) {
 	var req RegisterInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 3001, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrRegisterInvalidPayload)
 		return
 	}
 
 	profile, err := h.svc.Register(c.Request.Context(), req)
 	if err != nil {
-		status := http.StatusBadRequest
-		code := 3002
-		if err == ErrEmailExists {
-			code = 3003
+		if errors.Is(err, ErrEmailExists) {
+			response.Error(c, http.StatusBadRequest, ErrEmailExists)
+			return
 		}
-		response.Error(c, status, code, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrRegisterFailed)
 		return
 	}
 
@@ -66,19 +66,17 @@ func (h *Handler) register(c *gin.Context) {
 func (h *Handler) login(c *gin.Context) {
 	var req LoginInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 3011, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrLoginInvalidPayload)
 		return
 	}
 
 	result, err := h.svc.Login(c.Request.Context(), req)
 	if err != nil {
-		code := 3012
-		status := http.StatusBadRequest
-		if err == ErrInvalidCredentials {
-			status = http.StatusUnauthorized
-			code = 3013
+		if errors.Is(err, ErrInvalidCredentials) {
+			response.Error(c, http.StatusUnauthorized, ErrInvalidCredentials)
+			return
 		}
-		response.Error(c, status, code, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrLoginFailed)
 		return
 	}
 
@@ -91,15 +89,11 @@ func (h *Handler) login(c *gin.Context) {
 }
 
 func (h *Handler) me(c *gin.Context) {
-	session, ok := feature.AuthContextFromContext(c)
-	if !ok {
-		response.Error(c, http.StatusUnauthorized, 3021, "missing session")
-		return
-	}
+	session := feature.MustGetAuthContext(c)
 
 	profile, err := h.svc.Profile(c.Request.Context(), session.UserID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 3022, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrProfileLookupFailed)
 		return
 	}
 
@@ -107,21 +101,17 @@ func (h *Handler) me(c *gin.Context) {
 }
 
 func (h *Handler) updateMe(c *gin.Context) {
-	session, ok := feature.AuthContextFromContext(c)
-	if !ok {
-		response.Error(c, http.StatusUnauthorized, 3031, "missing session")
-		return
-	}
+	session := feature.MustGetAuthContext(c)
 
 	var req UpdateProfileInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 3032, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrUpdateMeInvalidBody)
 		return
 	}
 
 	profile, err := h.svc.UpdateProfile(c.Request.Context(), session.UserID, req)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3033, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrUpdateProfileFailed)
 		return
 	}
 
@@ -131,18 +121,17 @@ func (h *Handler) updateMe(c *gin.Context) {
 func (h *Handler) create(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 3041, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrCreateInvalidPayload)
 		return
 	}
 
 	profile, err := h.svc.CreateUser(c.Request.Context(), req)
 	if err != nil {
-		status := http.StatusBadRequest
-		code := 3042
-		if err == ErrEmailExists {
-			code = 3043
+		if errors.Is(err, ErrEmailExists) {
+			response.Error(c, http.StatusBadRequest, ErrEmailExists)
+			return
 		}
-		response.Error(c, status, code, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrCreateFailed)
 		return
 	}
 
@@ -156,13 +145,13 @@ func (h *Handler) update(c *gin.Context) {
 		Phone *string `json:"phone"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, 3051, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrUpdateInvalidPayload)
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3052, "invalid user id")
+		response.Error(c, http.StatusBadRequest, ErrInvalidUserID)
 		return
 	}
 
@@ -172,7 +161,7 @@ func (h *Handler) update(c *gin.Context) {
 		Phone: payload.Phone,
 	})
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3053, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrUpdateUserFailed)
 		return
 	}
 
@@ -184,18 +173,18 @@ func (h *Handler) delete(c *gin.Context) {
 		ID string `json:"id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, 3061, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidPayload)
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3062, "invalid user id")
+		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidUserID)
 		return
 	}
 
 	if err := h.svc.DeleteUser(c.Request.Context(), DeleteUserRequest{ID: userID}); err != nil {
-		response.Error(c, http.StatusBadRequest, 3063, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrDeleteUserFailed)
 		return
 	}
 
@@ -209,7 +198,7 @@ func (h *Handler) list(c *gin.Context) {
 		Email      string             `json:"email"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, 3071, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrListInvalidPayload)
 		return
 	}
 
@@ -219,7 +208,7 @@ func (h *Handler) list(c *gin.Context) {
 		Email:      payload.Email,
 	})
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, 3072, err.Error())
+		response.Error(c, http.StatusInternalServerError, ErrListUsersFailed)
 		return
 	}
 
@@ -232,19 +221,19 @@ func (h *Handler) assignRoles(c *gin.Context) {
 		Roles []string `json:"roles" binding:"required,min=1,dive,required"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, 3081, "invalid request payload")
+		response.Error(c, http.StatusBadRequest, ErrAssignInvalidPayload)
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3082, "invalid user id")
+		response.Error(c, http.StatusBadRequest, ErrAssignInvalidUserID)
 		return
 	}
 
 	profile, err := h.svc.AssignRoles(c.Request.Context(), AssignRolesRequest{ID: userID, Roles: payload.Roles})
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3083, err.Error())
+		response.Error(c, http.StatusBadRequest, ErrAssignRolesFailed)
 		return
 	}
 

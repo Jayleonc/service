@@ -1,9 +1,12 @@
 package response
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/Jayleonc/service/pkg/xerr"
 )
 
 // Response defines the standard structure shared by all API responses.
@@ -44,10 +47,18 @@ func SuccessWithMessage(c *gin.Context, message string, data interface{}) {
 	})
 }
 
-// Error writes an error response with the supplied business code and message.
-func Error(c *gin.Context, httpStatus int, code int, message string) {
-	c.JSON(httpStatus, Response{
-		Code:    code,
-		Message: message,
-	})
+// Error writes an error response leveraging typed business errors when available.
+func Error(c *gin.Context, httpStatus int, err error) {
+	var business *xerr.Error
+	if errors.As(err, &business) {
+		c.JSON(httpStatus, Response{Code: business.Code, Message: business.Message})
+		return
+	}
+
+	message := http.StatusText(httpStatus)
+	if err != nil && err.Error() != "" {
+		message = err.Error()
+	}
+
+	c.JSON(httpStatus, Response{Code: httpStatus, Message: message})
 }
