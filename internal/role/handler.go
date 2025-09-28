@@ -15,11 +15,20 @@ import (
 type Handler struct{}
 
 type replaceRolesRequest struct {
-	Roles []string `json:"roles" binding:"required,min=1,dive,required"`
+	UserID string   `json:"user_id" binding:"required"`
+	Roles  []string `json:"roles" binding:"required,min=1,dive,required"`
 }
 
 func (h *Handler) list(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("user_id"))
+	var req struct {
+		UserID string `json:"user_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 4010, "invalid request payload")
+		return
+	}
+
+	userID, err := uuid.Parse(req.UserID)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, 4011, "invalid user id")
 		return
@@ -38,15 +47,15 @@ func (h *Handler) list(c *gin.Context) {
 }
 
 func (h *Handler) replace(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("user_id"))
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 4021, "invalid user id")
-		return
-	}
-
 	var req replaceRolesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 4022, "invalid request payload")
+		return
+	}
+
+	userID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 4021, "invalid user id")
 		return
 	}
 
@@ -75,8 +84,8 @@ func NewHandler() *Handler {
 // RegisterRoutes attaches the role endpoints to the shared API group.
 func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/roles", h.create)
-	rg.GET("/roles/:user_id", h.list)
-	rg.PUT("/roles/:user_id", h.replace)
+	rg.POST("/roles/get", h.list)
+	rg.POST("/roles/replace", h.replace)
 }
 
 type createRoleRequest struct {

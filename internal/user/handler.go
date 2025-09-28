@@ -1,8 +1,10 @@
 package user
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/middleware"
+	"github.com/Jayleonc/service/pkg/constant"
 	"github.com/Jayleonc/service/pkg/response"
 )
 
@@ -32,9 +35,9 @@ func (h *Handler) RegisterRoutes(rg *gin.RouterGroup) {
 
 	authenticated := users.Group("")
 	authenticated.Use(middleware.Authenticated(h.authSvc))
-	authenticated.GET("/me", h.me)
-	authenticated.PUT("/me", h.updateMe)
-	authenticated.PUT("/:id/roles", h.updateRoles)
+	authenticated.POST("/me/get", h.me)
+	authenticated.POST("/me/update", h.updateMe)
+	authenticated.POST("/roles/update", middleware.RBAC(constant.RoleAdmin), h.updateRoles)
 }
 
 type registerRequest struct {
@@ -76,7 +79,8 @@ type updateProfileRequest struct {
 }
 
 type updateRolesRequest struct {
-	Roles []string `json:"roles" binding:"required,min=1,dive,required"`
+	UserID string   `json:"user_id" binding:"required"`
+	Roles  []string `json:"roles" binding:"required,min=1,dive,required"`
 }
 
 func (h *Handler) register(c *gin.Context) {
@@ -136,6 +140,11 @@ func (h *Handler) login(c *gin.Context) {
 }
 
 func (h *Handler) me(c *gin.Context) {
+	if err := bindOptionalJSON(c, &struct{}{}); err != nil {
+		response.Error(c, http.StatusBadRequest, 3020, "invalid request payload")
+		return
+	}
+
 	session, ok := auth.SessionFromContext(c)
 	if !ok {
 		response.Error(c, http.StatusUnauthorized, 3021, "missing session")
@@ -177,26 +186,15 @@ func (h *Handler) updateMe(c *gin.Context) {
 }
 
 func (h *Handler) updateRoles(c *gin.Context) {
-	session, ok := auth.SessionFromContext(c)
-	if !ok {
-		response.Error(c, http.StatusUnauthorized, 3041, "missing session")
-		return
-	}
-
-	if !hasRole(session.Roles, "admin") {
-		response.Error(c, http.StatusForbidden, 3042, "insufficient permissions")
-		return
-	}
-
-	userID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 3043, "invalid user id")
-		return
-	}
-
 	var req updateRolesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 3044, "invalid request payload")
+		return
+	}
+
+	userID, err := uuid.Parse(req.UserID)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 3043, "invalid user id")
 		return
 	}
 
@@ -226,11 +224,26 @@ func toProfileResponse(profile Profile) profileResponse {
 	}
 }
 
-func hasRole(roles []string, target string) bool {
-	for _, role := range roles {
-		if strings.EqualFold(role, target) {
-			return true
-		}
+func bindOptionalJSON(c *gin.Context, dest any) error {
+	if c.Request == nil || c.Request.Body == nil {
+		return nil
 	}
-	return false
+	if err := c.ShouldBindJSON(dest); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		var syntaxError *json.SyntaxError
+		if errors.As(err, &syntaxError) {
+			return err
+		}
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			return err
+		}
+		// Gin wraps EOF errors, so perform string comparison as a fallback.
+		if err.Error() == "EOF" {
+			return nil
+		}
+		return err
+	}
+	return nil
 }

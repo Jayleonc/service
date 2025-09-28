@@ -1,4 +1,3 @@
-// Lightweight fetch-based API client with auth and refresh handling
 import { useAuthStore } from '@/store/auth'
 
 const defaultHeaders = {
@@ -32,24 +31,44 @@ async function parseEnvelope(response) {
   return data
 }
 
+function normaliseBody(payload) {
+  if (payload === undefined || payload === null) {
+    return '{}'
+  }
+  if (typeof payload === 'string') {
+    return payload
+  }
+  return JSON.stringify(payload)
+}
+
 async function doFetch(url, options = {}, { retryOn401 = true } = {}) {
   const auth = useAuthStore()
 
   const headers = { ...defaultHeaders, ...(options.headers || {}) }
   if (auth.accessToken) {
-    headers['Authorization'] = `Bearer ${auth.accessToken}`
+    headers.Authorization = `Bearer ${auth.accessToken}`
   }
 
-  const res = await fetch(url, { ...options, headers })
+  const requestInit = {
+    method: options.method || 'POST',
+    headers,
+    body: normaliseBody(options.body),
+  }
+
+  const res = await fetch(url, requestInit)
   if (res.status === 401 && retryOn401 && auth.refreshToken) {
     try {
       await auth.refresh()
       const headers2 = { ...defaultHeaders, ...(options.headers || {}) }
-      if (auth.accessToken) headers2['Authorization'] = `Bearer ${auth.accessToken}`
-      const res2 = await fetch(url, { ...options, headers: headers2 })
+      if (auth.accessToken) headers2.Authorization = `Bearer ${auth.accessToken}`
+      const res2 = await fetch(url, {
+        method: requestInit.method,
+        headers: headers2,
+        body: requestInit.body,
+      })
       return await parseEnvelope(res2)
     } catch (e) {
-      auth.logout()
+      await auth.logout()
       throw e
     }
   }
@@ -57,8 +76,5 @@ async function doFetch(url, options = {}, { retryOn401 = true } = {}) {
 }
 
 export const api = {
-  get: (url, opts) => doFetch(url, { method: 'GET' }, opts),
-  post: (url, body, opts) => doFetch(url, { method: 'POST', body: JSON.stringify(body) }, opts),
-  put: (url, body, opts) => doFetch(url, { method: 'PUT', body: JSON.stringify(body) }, opts),
-  del: (url, opts) => doFetch(url, { method: 'DELETE' }, opts),
+  post: (url, body = {}, opts) => doFetch(url, { method: 'POST', body }, opts ?? {}),
 }

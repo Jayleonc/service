@@ -1,59 +1,42 @@
-// Composables
-import { createRouter, createWebHistory } from "vue-router";
-
-const routes = [
-  // Auth pages
-  {
-    path: "/login",
-    name: "Login",
-    component: () => import("@/views/Login.vue"),
-    meta: { transition: "fade" },
-  },
-  {
-    path: "/register",
-    name: "Register",
-    component: () => import("@/views/Register.vue"),
-    meta: { transition: "fade" },
-  },
-
-  // App pages (require auth)
-  {
-    path: "/",
-    component: () => import("@/layouts/default/Default.vue"),
-    meta: { transition: "slide-right", requiresAuth: true },
-    children: [
-      {
-        path: "",
-        name: "Users",
-        component: () => import(/* webpackChunkName: "users" */ "@/views/Users.vue"),
-        meta: { requiresAuth: true },
-      },
-      {
-        path: "me",
-        name: "Me",
-        component: () => import("@/views/Me.vue"),
-        meta: { requiresAuth: true },
-      },
-    ],
-  },
-  {
-    path: "/user-profile/:id",
-    component: () => import("@/layouts/default/Default.vue"),
-    meta: { transition: "slide-right", requiresAuth: true },
-    children: [
-      {
-        path: "",
-        name: "UserProfile",
-        component: () => import(/* webpackChunkName: "userProfile" */ "@/views/UserProfile.vue"),
-        meta: { requiresAuth: true },
-      },
-    ],
-  },
-];
+import { createRouter, createWebHistory } from 'vue-router'
 
 const router = createRouter({
-  history: createWebHistory(process.env.BASE_URL),
-  routes,
-});
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/login',
+      name: 'Login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { transition: 'fade' },
+    },
+    {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/RegisterView.vue'),
+      meta: { transition: 'fade' },
+    },
+    {
+      path: '/',
+      component: () => import('@/views/ShellView.vue'),
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          redirect: { name: 'Profile' },
+        },
+        {
+          path: 'profile',
+          name: 'Profile',
+          component: () => import('@/views/ProfileView.vue'),
+          meta: { requiresAuth: true },
+        },
+      ],
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
+    },
+  ],
+})
 
-export default router;
+export default router
