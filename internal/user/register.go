@@ -6,6 +6,8 @@ import (
 
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/module"
+	"github.com/Jayleonc/service/internal/role"
+	"github.com/Jayleonc/service/internal/server"
 )
 
 // Register wires the user module using the structured/DI development path.
@@ -30,9 +32,10 @@ func Register(ctx context.Context, deps module.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	svc := NewService(repo, deps.Validator, authService)
-	handler := NewHandler(svc, authService)
-	handler.RegisterRoutes(deps.API)
+	roleRepo := role.NewRepository(deps.DB)
+	svc := NewService(repo, roleRepo, deps.Validator, authService)
+	handler := NewHandler(svc)
+	server.RegisterModuleRoutes(deps.API, authService, handler.GetRoutes())
 
 	if deps.Logger != nil {
 		deps.Logger.Info("user module initialised", "pattern", "structured")

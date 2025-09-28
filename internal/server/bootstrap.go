@@ -18,7 +18,7 @@ import (
 
 // Bootstrap assembles the shared infrastructure, registers every module and returns
 // a ready-to-run application instance.
-func Bootstrap() (*App, error) {
+func Bootstrap(modules []module.Entry) (*App, error) {
 	ctx := context.Background()
 
 	// ======= 初始化配置 =======
@@ -99,7 +99,7 @@ func Bootstrap() (*App, error) {
 		Validator: validation.Default(),
 	}
 
-	for _, entry := range Modules {
+	for _, entry := range modules {
 		if err := entry.Registrar(ctx, deps); err != nil {
 			return nil, fmt.Errorf("register module %s: %w", entry.Name, err)
 		}
