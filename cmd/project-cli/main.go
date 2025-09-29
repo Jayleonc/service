@@ -126,8 +126,13 @@ func runNewFeature(root string) error {
 		return err
 	}
 
+	enableRBAC, err := promptForRBACOption(reader)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("Creating %s feature %q...\n", featureType, name)
-	if err := createFeature(root, name, featureType); err != nil {
+	if err := createFeature(root, name, featureType, enableRBAC); err != nil {
 		return err
 	}
 
@@ -183,6 +188,26 @@ func promptForFeatureType(reader *bufio.Reader) (string, error) {
 	}
 }
 
+func promptForRBACOption(reader *bufio.Reader) (bool, error) {
+	for {
+		fmt.Print("Add RBAC permission declarations to routes? ([y/N]): ")
+		input, err := readLine(reader)
+		if err != nil {
+			return false, err
+		}
+
+		choice := strings.ToLower(input)
+		switch choice {
+		case "", "n", "no":
+			return false, nil
+		case "y", "yes":
+			return true, nil
+		default:
+			fmt.Println("Please answer yes or no (default: no).")
+		}
+	}
+}
+
 func readLine(reader *bufio.Reader) (string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
@@ -203,7 +228,7 @@ func exitWithError(err error) {
 	os.Exit(1)
 }
 
-func createFeature(root, name, featureType string) error {
+func createFeature(root, name, featureType string, enableRBAC bool) error {
 	featureDir := filepath.Join(root, "internal", name)
 	if _, err := os.Stat(featureDir); err == nil {
 		return fmt.Errorf("feature directory %s already exists", featureDir)
@@ -217,12 +242,14 @@ func createFeature(root, name, featureType string) error {
 
 	display := displayName(name)
 	data := featureTemplateData{
-		Package:     name,
-		Name:        name,
-		FeatureName: name,
-		DisplayName: display,
-		LogMessage:  fmt.Sprintf("%s feature initialised", display),
-		EntityName:  strings.ReplaceAll(display, " ", ""),
+		Package:          name,
+		Name:             name,
+		FeatureName:      name,
+		DisplayName:      display,
+		LogMessage:       fmt.Sprintf("%s feature initialised", display),
+		EntityName:       strings.ReplaceAll(display, " ", ""),
+		EnableRBAC:       enableRBAC,
+		PermissionPrefix: fmt.Sprintf("%s:", name),
 	}
 
 	files := map[string][]byte{}
@@ -257,12 +284,14 @@ func createFeature(root, name, featureType string) error {
 }
 
 type featureTemplateData struct {
-	Package     string
-	Name        string
-	FeatureName string
-	DisplayName string
-	LogMessage  string
-	EntityName  string
+	Package          string
+	Name             string
+	FeatureName      string
+	DisplayName      string
+	LogMessage       string
+	EntityName       string
+	EnableRBAC       bool
+	PermissionPrefix string
 }
 
 func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
@@ -567,10 +596,18 @@ func NewHandler() *Handler {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
         return feature.ModuleRoutes{
                 PublicRoutes: []feature.RouteDefinition{
+                        {{if .EnableRBAC}}
+                        {Path: "ping", Handler: h.ping, RequiredPermission: "{{.PermissionPrefix}}ping"},
+                        {{else}}
                         {Path: "ping", Handler: h.ping},
+                        {{end}}
                 },
                 AuthenticatedRoutes: []feature.RouteDefinition{
+                        {{if .EnableRBAC}}
+                        {Path: "echo", Handler: h.echo, RequiredPermission: "{{.PermissionPrefix}}echo"},
+                        {{else}}
                         {Path: "echo", Handler: h.echo},
+                        {{end}}
                 },
         }
 }
@@ -706,10 +743,18 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
         return feature.ModuleRoutes{
                 PublicRoutes: []feature.RouteDefinition{
+                        {{if .EnableRBAC}}
+                        {Path: "ping", Handler: h.ping, RequiredPermission: "{{.PermissionPrefix}}ping"},
+                        {{else}}
                         {Path: "ping", Handler: h.ping},
+                        {{end}}
                 },
                 AuthenticatedRoutes: []feature.RouteDefinition{
+                        {{if .EnableRBAC}}
+                        {Path: "process", Handler: h.process, RequiredPermission: "{{.PermissionPrefix}}process"},
+                        {{else}}
                         {Path: "process", Handler: h.process},
+                        {{end}}
                 },
         }
 }
