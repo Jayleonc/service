@@ -6,6 +6,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/rbac"
 )
 
 // Register 以结构化/依赖注入方式初始化用户功能。
@@ -24,7 +25,14 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	svc := NewService(repo, deps.Validator, authService)
+	rbacService := rbac.DefaultService()
+	if rbacService == nil {
+		return fmt.Errorf("user feature requires the rbac service to be initialised")
+	}
+
+	rbac.SetPermissionChecker(repo)
+
+	svc := NewService(repo, deps.Validator, authService, rbacService)
 	handler := NewHandler(svc)
 	deps.Router.RegisterModule("user", handler.GetRoutes())
 

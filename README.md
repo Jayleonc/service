@@ -8,7 +8,7 @@
 cmd/service/            # 入口 - 创建应用上下文
 internal/server/        # 应用核心、启动逻辑与特性清单
 internal/auth/          # 结构化/依赖注入示例特性（用户管理）
-internal/role/          # 简单/单例示例特性（角色分配）
+internal/rbac/          # 结构化 RBAC 特性（角色与权限管理）
 internal/middleware/    # 共享的 Gin 中间件
 pkg/                    # 可复用的基础设施（配置、数据库、认证、观测等）
 ```
@@ -45,16 +45,19 @@ pkg/                    # 可复用的基础设施（配置、数据库、认证
 - `internal/auth/handler.go` —— `/v1/users` 的 HTTP 契约。
 - `internal/auth/register.go` —— 自包含的依赖装配。
 
-### 简单 / 单例路径 —— `internal/role`
+### 细粒度 RBAC —— `internal/rbac`
 
-角色特性践行“快速推进”路线。`register.go` 获取由启动器初始化的全局数据库，执行轻量级迁移，并挂载单个处理器。处理器直接使用 GORM 处理 `POST /v1/roles` 的插入。没有仓储或服务层——所有逻辑都留在处理器内，适用于需求清晰的简单 CRUD 场景。
+RBAC 特性展示了如何在结构化范式下构建高度内聚的授权系统。模块集中定义角色与权限模型，提供仓储、服务、HTTP 处理器以及声明式的权限中间件。通过统一的 `/v1/rbac` API，前端可以动态管理角色、权限及其关联关系，同时所有业务路由只需声明所需权限即可获得保护。
 
 核心文件：
 
-- `internal/role/handler.go` —— 内联模型定义与使用 `database.Default()` 的请求处理器。
-- `internal/role/register.go` —— 极简启动流程，专为快节奏的 CRUD 特性设计。
+- `internal/rbac/model.go` —— 角色与权限的统一数据模型。
+- `internal/rbac/service.go` —— 角色/权限业务逻辑与种子数据。
+- `internal/rbac/handler.go` —— 完整的 RBAC 管理 API。
+- `internal/rbac/middleware.go` —— 基于权限的动态路由防护。
+- `internal/rbac/register.go` —— 模块装配与依赖注册。
 
-两个特性共享同一个路由器，彼此之间不会将关注点泄漏到启动器中。
+认证与 RBAC 模块共享同一个路由器，彼此之间不会将关注点泄漏到启动器中。
 
 ## 核心架构决策
 
@@ -93,7 +96,7 @@ pkg/                    # 可复用的基础设施（配置、数据库、认证
 
 1. **创建特性** —— 在 `internal/` 下添加目录并实现 `Register` 函数。
 2. **加入清单** —— 向 `internal/app/bootstrap.go` 追加清单条目。
-3. **选择合适范式** —— 可以像 `internal/auth` 那样显式装配，也可以像 `internal/role` 那样依赖全局单例。根据特性选择最合适的方式，两种范式可以在同一应用中并存。
+3. **选择合适范式** —— 可以像 `internal/auth` 或 `internal/rbac` 那样显式装配，也可以按需实现更轻量的单例模式。根据特性选择最合适的方式，两种范式可以在同一应用中并存。
 
 借助这套流程，新增特性只需修改两个位置：特性自身目录与清单。
 

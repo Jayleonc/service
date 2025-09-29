@@ -6,6 +6,8 @@ import "github.com/gin-gonic/gin"
 type RouteDefinition struct {
 	Path    string
 	Handler gin.HandlerFunc
+	// RequiredPermission declares the RBAC permission necessary to access this route.
+	RequiredPermission string
 }
 
 // ModuleRoutes 是一个功能对外暴露的、按权限划分的路由清单
