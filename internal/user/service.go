@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/Jayleonc/service/internal/auth"
-	"github.com/Jayleonc/service/internal/role"
+	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/constant"
 	"github.com/Jayleonc/service/pkg/ginx/paginator"
 	"github.com/Jayleonc/service/pkg/ginx/request"
@@ -24,6 +24,7 @@ type Service struct {
 	repo        *Repository
 	validator   *validator.Validate
 	authService *auth.Service
+	rbacService *rbac.Service
 }
 
 // RegisterInput 定义注册用户所需的入参结构。
@@ -87,8 +88,8 @@ type LoginResult struct {
 }
 
 // NewService 创建 Service 实例。
-func NewService(repo *Repository, validate *validator.Validate, authService *auth.Service) *Service {
-	return &Service{repo: repo, validator: validate, authService: authService}
+func NewService(repo *Repository, validate *validator.Validate, authService *auth.Service, rbacService *rbac.Service) *Service {
+	return &Service{repo: repo, validator: validate, authService: authService, rbacService: rbacService}
 }
 
 // Register 持久化新用户。
@@ -333,37 +334,23 @@ func (s *Service) AssignRoles(ctx context.Context, req AssignRolesRequest) (Prof
 	return toProfile(*record), nil
 }
 
-func (s *Service) rolesByNames(ctx context.Context, names []string) ([]role.Role, error) {
-	roles, err := role.FindRolesByNames(ctx, names)
+func (s *Service) rolesByNames(ctx context.Context, names []string) ([]*rbac.Role, error) {
+	roles, err := s.rbacService.GetRolesByNames(ctx, names)
 	if err != nil {
+		if errors.Is(err, rbac.ErrResourceNotFound) {
+			return nil, ErrRolesRequired
+		}
 		return nil, err
 	}
 
-	if len(roles) != len(uniqueNormalized(names)) {
+	if len(roles) == 0 {
 		return nil, ErrRolesRequired
 	}
 
 	return roles, nil
 }
 
-func uniqueNormalized(names []string) []string {
-	seen := make(map[string]struct{}, len(names))
-	normalized := make([]string, 0, len(names))
-	for _, name := range names {
-		trimmed := strings.ToUpper(strings.TrimSpace(name))
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := seen[trimmed]; ok {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-		normalized = append(normalized, trimmed)
-	}
-	return normalized
-}
-
-func roleNames(roles []role.Role) []string {
+func roleNames(roles []*rbac.Role) []string {
 	if len(roles) == 0 {
 		return nil
 	}

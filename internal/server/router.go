@@ -14,6 +14,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/internal/middleware"
+	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
@@ -104,7 +105,12 @@ func (r *Router) RegisterModule(pathPrefix string, routes feature.ModuleRoutes) 
 				continue
 			}
 
-			group.POST(path, def.Handler)
+			handlers := make([]gin.HandlerFunc, 0, 1)
+			if def.RequiredPermission != "" {
+				handlers = append(handlers, rbac.PermissionMiddleware(def.RequiredPermission))
+			}
+			handlers = append(handlers, def.Handler)
+			group.POST(path, handlers...)
 		}
 	}
 

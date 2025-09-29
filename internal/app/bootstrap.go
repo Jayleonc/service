@@ -3,7 +3,7 @@ package app
 import (
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/internal/role"
+	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/internal/server"
 	"github.com/Jayleonc/service/internal/user"
 )
@@ -11,7 +11,7 @@ import (
 // Features 列举了启动时需要初始化的全部业务模块。
 var Features = []feature.Entry{
 	{Name: "auth", Registrar: auth.Register},
-	{Name: "role", Registrar: role.Register},
+	{Name: "rbac", Registrar: rbac.Register},
 	{Name: "user", Registrar: user.Register},
 }
 
