@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -72,31 +71,4 @@ func (r *Repository) ReplaceRoles(ctx context.Context, user *User, roles []*rbac
 // Migrate 执行用户表结构迁移。
 func (r *Repository) Migrate(ctx context.Context) error {
 	return r.db.WithContext(ctx).AutoMigrate(&User{})
-}
-
-// HasPermission 判断用户是否拥有指定权限。
-func (r *Repository) HasPermission(ctx context.Context, userID uuid.UUID, permission string) (bool, error) {
-	resource, action, ok := rbac.ParsePermissionKey(permission)
-	if !ok {
-		return false, nil
-	}
-
-	var count int64
-	query := r.db.WithContext(ctx).
-		Table("permissions").
-		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
-		Joins("JOIN user_roles ur ON ur.role_id = rp.role_id").
-		Where("ur.user_id = ?", userID)
-
-	if resource != "" {
-		query = query.Where("LOWER(permissions.resource) = ?", strings.ToLower(resource))
-	}
-	if action != "" {
-		query = query.Where("LOWER(permissions.action) = ?", strings.ToLower(action))
-	}
-
-	if err := query.Count(&count).Error; err != nil {
-		return false, err
-	}
-	return count > 0, nil
 }

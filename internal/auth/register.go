@@ -18,7 +18,7 @@ var (
 )
 
 // Register 以结构化/依赖注入方式初始化认证特性。
-func Register(ctx context.Context, deps feature.Dependencies) error {
+func Register(ctx context.Context, deps *feature.Dependencies) error {
 	if deps.Auth == nil {
 		return fmt.Errorf("auth feature requires an auth manager")
 	}

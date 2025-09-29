@@ -33,14 +33,3 @@ type Role struct {
 func (Role) TableName() string {
 	return "roles"
 }
-
-// PermissionKey joins resource and action together using a colon separator.
-func PermissionKey(resource, action string) string {
-	if resource == "" {
-		return action
-	}
-	if action == "" {
-		return resource
-	}
-	return resource + ":" + action
-}

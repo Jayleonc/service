@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/auth"
 	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
@@ -88,7 +91,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 		Guards:           guards,
 	})
 
-	deps := feature.Dependencies{
+	deps := &feature.Dependencies{
 		Logger:    log,
 		DB:        db,
 		Router:    router,
@@ -106,6 +109,17 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 			return nil, fmt.Errorf("register feature %s: %w", entry.Name, err)
 		}
 		log.Info("feature registered", "feature", entry.Name)
+	}
+
+	if deps.Router != nil && deps.PermissionEnforcer != nil {
+		deps.Router.UsePermissionEnforcer(deps.PermissionEnforcer)
+	}
+
+	if deps.Guards != nil && deps.PermissionEnforcer != nil {
+		enforcer := deps.PermissionEnforcer
+		adminGuard := append([]gin.HandlerFunc{}, deps.Guards.Authenticated...)
+		adminGuard = append(adminGuard, enforcer(rbac.PermissionKey(rbac.ResourceSystem, rbac.ActionAdmin)))
+		deps.Guards.Admin = adminGuard
 	}
 
 	return NewApp(router.Engine(), cfg, log), nil

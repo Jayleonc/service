@@ -9,6 +9,4 @@ var (
 	ErrResourceNotFound = errors.New("resource not found")
 	// ErrPermissionDenied indicates the user lacks the required permission.
 	ErrPermissionDenied = errors.New("permission denied")
-	// ErrPermissionServiceUnavailable indicates that the permission checker has not been wired.
-	ErrPermissionServiceUnavailable = errors.New("permission service unavailable")
 )
