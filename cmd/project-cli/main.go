@@ -242,16 +242,20 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 
 	display := displayName(name)
 	entityName := strings.ReplaceAll(display, " ", "")
+	const suggestedErrorCodeStart = 5000
+
 	data := featureTemplateData{
-		Package:          name,
-		Name:             name,
-		FeatureName:      name,
-		DisplayName:      display,
-		LogMessage:       fmt.Sprintf("%s feature initialised", display),
-		EntityName:       entityName,
-		EntityVar:        lowerFirst(entityName),
-		EnableRBAC:       enableRBAC,
-		PermissionPrefix: fmt.Sprintf("%s:", name),
+		Package:               name,
+		Name:                  name,
+		FeatureName:           name,
+		DisplayName:           display,
+		LogMessage:            fmt.Sprintf("%s feature initialised", display),
+		EntityName:            entityName,
+		EntityVar:             lowerFirst(entityName),
+		EnableRBAC:            enableRBAC,
+		PermissionPrefix:      fmt.Sprintf("%s:", name),
+		SuggestedErrorCode:    suggestedErrorCodeStart,
+		SuggestedErrorCodeEnd: suggestedErrorCodeStart + 999,
 	}
 
 	files := map[string][]byte{}
@@ -286,15 +290,17 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 }
 
 type featureTemplateData struct {
-	Package          string
-	Name             string
-	FeatureName      string
-	DisplayName      string
-	LogMessage       string
-	EntityName       string
-	EntityVar        string
-	EnableRBAC       bool
-	PermissionPrefix string
+	Package               string
+	Name                  string
+	FeatureName           string
+	DisplayName           string
+	LogMessage            string
+	EntityName            string
+	EntityVar             string
+	EnableRBAC            bool
+	PermissionPrefix      string
+	SuggestedErrorCode    int
+	SuggestedErrorCodeEnd int
 }
 
 func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
@@ -313,10 +319,16 @@ func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
 		return nil, err
 	}
 
+	errorsFile, err := renderGoTemplate(errorsTemplate, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string][]byte{
 		"model.go":    model,
 		"handler.go":  handler,
 		"register.go": register,
+		"errors.go":   errorsFile,
 	}, nil
 }
 
@@ -346,12 +358,18 @@ func renderStructuredFeature(data featureTemplateData) (map[string][]byte, error
 		return nil, err
 	}
 
+	errorsFile, err := renderGoTemplate(errorsTemplate, data)
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string][]byte{
 		"model.go":      model,
 		"repository.go": repository,
 		"service.go":    service,
 		"handler.go":    handler,
 		"register.go":   register,
+		"errors.go":     errorsFile,
 	}, nil
 }
 
@@ -635,13 +653,6 @@ import (
 "github.com/Jayleonc/service/pkg/xerr"
 )
 
-var (
-        errInvalidPayload     = xerr.New(1, "invalid request payload")
-        errRecordNotFound     = xerr.New(2, "{{.EntityVar}} not found")
-        errInvalidIdentifier  = xerr.New(3, "invalid resource identifier")
-        errDatabaseNotReady   = xerr.New(4, "database is not initialised")
-)
-
 // CreateInput 定义创建 {{.DisplayName}} 的请求体。
 type CreateInput struct {
         Name string ` + "`json:\"name\" binding:\"required\"`" + `
@@ -701,13 +712,13 @@ AuthenticatedRoutes: []feature.RouteDefinition{
 func (h *Handler) create(c *gin.Context) {
 var input CreateInput
 if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidPayload)
+response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 return
 }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -726,27 +737,27 @@ response.SuccessWithStatus(c, http.StatusCreated, record)
 
 func (h *Handler) getByID(c *gin.Context) {
         var input GetByIDInput
-        if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
 var record {{.EntityName}}
 if err := db.WithContext(c.Request.Context()).First(&record, "id = ?", id).Error; err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, errRecordNotFound)
+response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -758,20 +769,20 @@ response.Success(c, record)
 
 func (h *Handler) update(c *gin.Context) {
         var input UpdateInput
-        if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -779,7 +790,7 @@ ctx := c.Request.Context()
 var record {{.EntityName}}
         if err := db.WithContext(ctx).First(&record, "id = ?", id).Error; err != nil {
                 if errors.Is(err, gorm.ErrRecordNotFound) {
-                        response.Error(c, http.StatusNotFound, errRecordNotFound)
+                        response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
                         return
                 }
                 response.Error(c, http.StatusInternalServerError, err)
@@ -798,20 +809,20 @@ response.Success(c, record)
 
 func (h *Handler) delete(c *gin.Context) {
         var input DeleteInput
-        if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -827,14 +838,14 @@ func (h *Handler) list(c *gin.Context) {
         var query ListQuery
         if err := c.ShouldBindJSON(&query); err != nil {
                 if !errors.Is(err, io.EOF) {
-                        response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                        response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                         return
                 }
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -1084,12 +1095,6 @@ import (
 "github.com/Jayleonc/service/pkg/xerr"
 )
 
-var (
-        errInvalidPayload    = xerr.New(1, "invalid request payload")
-        errInvalidIdentifier = xerr.New(2, "invalid resource identifier")
-        errRecordNotFound    = xerr.New(3, "{{.EntityVar}} not found")
-)
-
 type Handler struct {
 service *Service
 }
@@ -1151,7 +1156,7 @@ AuthenticatedRoutes: []feature.RouteDefinition{
 func (h *Handler) create(c *gin.Context) {
 var input CreateInput
 if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidPayload)
+response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 return
 }
 
@@ -1169,20 +1174,20 @@ response.SuccessWithStatus(c, http.StatusCreated, entity)
 func (h *Handler) getByID(c *gin.Context) {
         var input GetByIDInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 record, err := h.service.GetByID(c.Request.Context(), id)
 if err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, errRecordNotFound)
+response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -1195,13 +1200,13 @@ response.Success(c, record)
 func (h *Handler) update(c *gin.Context) {
         var input UpdateInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
@@ -1211,7 +1216,7 @@ func (h *Handler) update(c *gin.Context) {
         })
 if err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, errRecordNotFound)
+response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -1224,13 +1229,13 @@ response.Success(c, record)
 func (h *Handler) delete(c *gin.Context) {
         var input DeleteInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
@@ -1246,7 +1251,7 @@ func (h *Handler) list(c *gin.Context) {
         var query ListQuery
         if err := c.ShouldBindJSON(&query); err != nil {
                 if !errors.Is(err, io.EOF) {
-                        response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                        response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
                         return
                 }
         }
@@ -1305,4 +1310,15 @@ func Register(ctx context.Context, deps *feature.Dependencies) error {
         // 返回 nil 表示初始化成功。
         return nil
 }
+`
+
+const errorsTemplate = `package {{.Package}}
+
+// {{.DisplayName}} 模块错误码范围：{{.SuggestedErrorCode}}-{{.SuggestedErrorCodeEnd}}
+//
+// 提示：为 '{{.Name}}' 模块定义的业务错误码，建议从 {{.SuggestedErrorCode}} 开始，以避免与通用错误码或其他模块冲突。
+// 使用示例：
+// // var (
+// //     ErrExampleFailure = xerr.New({{.SuggestedErrorCode}}, "示例错误描述")
+// // )
 `

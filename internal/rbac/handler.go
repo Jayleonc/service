@@ -11,6 +11,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/ginx/response"
+	"github.com/Jayleonc/service/pkg/xerr"
 )
 
 // Handler exposes management APIs for the RBAC module.
@@ -60,7 +61,7 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 func (h *Handler) createRole(c *gin.Context) {
 	var req CreateRoleInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -80,20 +81,20 @@ func (h *Handler) updateRole(c *gin.Context) {
 		Description string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	roleID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid role id"))
 		return
 	}
 
 	updated, err := h.svc.UpdateRole(c.Request.Context(), UpdateRoleInput{ID: roleID, Name: req.Name, Description: req.Description})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("role not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
@@ -108,19 +109,19 @@ func (h *Handler) deleteRole(c *gin.Context) {
 		ID string `json:"id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	roleID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid role id"))
 		return
 	}
 
 	if err := h.svc.DeleteRole(c.Request.Context(), DeleteRoleInput{ID: roleID}); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("role not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
@@ -145,20 +146,20 @@ func (h *Handler) assignRolePermissions(c *gin.Context) {
 		Permissions []string `json:"permissions" binding:"required,min=1,dive,required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	roleID, err := uuid.Parse(req.RoleID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid role id"))
 		return
 	}
 
 	role, err := h.svc.AssignPermissions(c.Request.Context(), AssignRolePermissionsInput{RoleID: roleID, Permissions: req.Permissions})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("role not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
@@ -173,20 +174,20 @@ func (h *Handler) getRolePermissions(c *gin.Context) {
 		RoleID string `json:"roleId" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	roleID, err := uuid.Parse(req.RoleID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid role id"))
 		return
 	}
 
 	permissions, err := h.svc.GetRolePermissions(c.Request.Context(), roleID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("role not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
@@ -199,7 +200,7 @@ func (h *Handler) getRolePermissions(c *gin.Context) {
 func (h *Handler) createPermission(c *gin.Context) {
 	var req CreatePermissionInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -220,20 +221,20 @@ func (h *Handler) updatePermission(c *gin.Context) {
 		Description string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid permission id"))
 		return
 	}
 
 	permissionID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid permission id"))
 		return
 	}
 
 	updated, err := h.svc.UpdatePermission(c.Request.Context(), UpdatePermissionInput{ID: permissionID, Resource: req.Resource, Action: req.Action, Description: req.Description})
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("permission not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
@@ -248,19 +249,19 @@ func (h *Handler) deletePermission(c *gin.Context) {
 		ID string `json:"id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	permissionID, err := uuid.Parse(req.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid permission id"))
 		return
 	}
 
 	if err := h.svc.DeletePermission(c.Request.Context(), DeletePermissionInput{ID: permissionID}); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			response.Error(c, http.StatusNotFound, ErrResourceNotFound)
+			response.Error(c, http.StatusNotFound, ErrResourceNotFound.WithMessage("permission not found"))
 			return
 		}
 		response.Error(c, http.StatusBadRequest, err)
