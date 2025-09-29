@@ -340,55 +340,39 @@ func registerModuleCodeBase(path, pascalName string, base int) error {
 }
 
 func registerRBACResource(path, pascalName, featureName string) error {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	// 读取文件内容
+	content, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("parse permission_def.go: %w", err)
+		return fmt.Errorf("read permission_def.go: %w", err)
 	}
 
+	// 检查常量是否已存在
 	constName := fmt.Sprintf("Resource%s", pascalName)
-
-	var constBlock *ast.GenDecl
-	for _, decl := range file.Decls {
-		gen, ok := decl.(*ast.GenDecl)
-		if !ok || gen.Tok != token.CONST {
-			continue
-		}
-
-		for _, spec := range gen.Specs {
-			valueSpec, ok := spec.(*ast.ValueSpec)
-			if !ok {
-				continue
-			}
-
-			for _, name := range valueSpec.Names {
-				if name.Name == constName {
-					return nil
-				}
-				if strings.HasPrefix(name.Name, "Resource") {
-					constBlock = gen
-				}
-			}
-		}
+	if strings.Contains(string(content), constName) {
+		return nil // 常量已存在，无需添加
 	}
 
-	if constBlock == nil {
+	// 使用正则表达式查找 Resource 常量块
+	resourceBlockRegex := regexp.MustCompile(`(?s)// Resource 定义系统内可授权的资源标识。\s*const \(([^\)]*)\)`)
+	matches := resourceBlockRegex.FindStringSubmatch(string(content))
+	if len(matches) < 2 {
 		return errors.New("resource constants block not found in permission_def.go")
 	}
 
-	spec := &ast.ValueSpec{
-		Names:  []*ast.Ident{ast.NewIdent(constName)},
-		Values: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(featureName)}},
-	}
+	// 提取常量块内容
+	constBlockContent := matches[1]
 
-	constBlock.Specs = append(constBlock.Specs, spec)
+	// 构建新的常量块
+	// 使用与其他常量相同的格式，确保对齐
+	newConstant := fmt.Sprintf("\t%s          = \"%s\"\n", constName, featureName)
+	newConstBlockContent := constBlockContent + newConstant
 
-	var buf bytes.Buffer
-	if err := format.Node(&buf, fset, file); err != nil {
-		return fmt.Errorf("format permission_def.go: %w", err)
-	}
+	// 替换原始常量块
+	newContent := resourceBlockRegex.ReplaceAllString(string(content),
+		"// Resource 定义系统内可授权的资源标识。\nconst ("+newConstBlockContent+")")
 
-	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+	// 写回文件
+	if err := os.WriteFile(path, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("write permission_def.go: %w", err)
 	}
 
