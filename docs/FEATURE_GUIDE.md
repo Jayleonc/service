@@ -1,6 +1,6 @@
 # 功能开发指南
 
-该服务模板同时支持两套互补的开发范式，方便团队在交付速度与长期可维护性之间取得平衡。无论采用哪种方式，最终都会接入 [`internal/server`](internal/server) 中的通用启动流程：`bootstrap.go` 负责组装基础设施，`app.go` 暴露生命周期管理能力，`router.go` 则在根据 [`internal/feature`](internal/feature) 下定义的契约完成路由与分发。
+该服务模板同时支持两套互补的开发范式，方便团队在交付速度与长期可维护性之间取得平衡。无论采用哪种方式，最终都会接入 [`internal/server`](../internal/server) 中的通用启动流程：`bootstrap.go` 负责组装基础设施，`app.go` 暴露生命周期管理能力，`router.go` 则在根据 [`internal/feature`](../internal/feature) 下定义的契约完成路由与分发。
 
 ## 为什么要提供两种范式？
 
@@ -107,7 +107,7 @@ make new-feature
 代码生成器会完成以下工作：
 
 1. 在 `internal/<name>/` 下创建结构化（repository/service/handler/register）或单例（handler/register）模板。
-2. 将功能自动注册到 [`internal/app/bootstrap.go`](internal/app/bootstrap.go)，在应用启动时自动加载。
+2. 将功能自动注册到 [`internal/app/bootstrap.go`](../internal/app/bootstrap.go)，在应用启动时自动加载。
 3. 保持启动、路由和中间件逻辑不变——新功能通过 `feature.Dependencies` 或单例助手直接接入现有生命周期。
 
 脚手架完成后，只需补全仓储方法、完善服务逻辑并用真实路由替换占位符。配置、数据库、日志、指标、链路追踪等基础能力已经通过 `feature.Dependencies` 或全局单例提供，可即刻复用。

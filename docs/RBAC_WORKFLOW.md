@@ -1,11 +1,11 @@
-# 可插拔式高级RBAC系统保姆级指南
+# 可插拔式高级 RBAC 系统保姆级指南
 
-欢迎加入项目！本脚手架内置两套权限体系：
+本脚手架内置两套权限体系：
 
 1. **默认的简单三层守卫模式** —— 仅依赖基础的公共、登录、管理员路由守卫。
-2. **可选的高级RBAC插件模式** —— 在保持脚手架轻量的同时，引入动态的权限模型和自动化注册流程。
+2. **可选的高级 RBAC 插件模式** —— 在保持脚手架轻量的同时，引入动态的权限模型和自动化注册流程。
 
-本文档的目标是**专注讲透“高级RBAC插件模式”**，帮助你从零理解它的运行原理。整套设计秉持两大核心哲学：
+本文档的目标是**专注讲透“高级 RBAC 插件模式”**，帮助你从零理解它的运行原理。整套设计秉持两大核心哲学：
 
 - **代码即文档，声明即注册**：开发者只需在路由定义上“声明”所需的权限，系统会自动完成后续的发现、注册、同步。
 - **约定优于配置**：统一的命名约定和常量定义确保团队协作时无需重复配置，降低心智负担。
@@ -31,7 +31,7 @@ graph LR
 
 ### 1.1 模型关系综述
 
-在高级RBAC模式下，权限控制围绕三大核心概念展开：
+在高级 RBAC 模式下，权限控制围绕三大核心概念展开：
 
 - **用户（User）**：登录系统的主体，可以拥有多个角色。
 - **角色（Role）**：权限的组合包，适用于某类用户。
@@ -43,7 +43,7 @@ graph LR
 
 用户与角色、角色与权限之间都是“多对多”关系，分别通过 `user_roles`、`role_permissions` 中间表维护。
 
-### 1.2 核心GORM结构体
+### 1.2 核心 GORM 结构体
 
 以下是三个核心结构体在代码中的真实定义：
 
@@ -123,9 +123,9 @@ erDiagram
 
 ## 第二章：一个权限的诞生、注册与执行
 
-这一章我们用“API请求的生命周期”串起全部流程，示例接口选取 `POST /v1/user/delete`。
+这一章我们用“API 请求的生命周期”串起全部流程，示例接口选取 `POST /v1/user/delete`。
 
-### 步骤1：声明（The Declaration）
+### 步骤 1：声明（The Declaration）
 
 开发者在 `internal/user/handler.go` 中声明路由时，只需指出所需权限：
 
@@ -148,7 +148,7 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 
 > 关于命名：Action 不必与 HTTP Path 完全相同，但建议语义上保持一致（例如 Delete 动作搭配 `delete` 路径），这样在排查权限时直观易懂。
 
-### 步骤2：自动发现（The Discovery）
+### 步骤 2：自动发现（The Discovery）
 
 当应用启动时，`internal/server/bootstrap.go` 会负责初始化所有模块：
 
@@ -158,7 +158,7 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 
 用一句话总结：**你在各个 Handler 上写的 RequiredPermission，都会在启动期被自动发现并汇总。**
 
-### 步骤3：自动注册（The Registration）
+### 步骤 3：自动注册（The Registration）
 
 收集到的权限列表随后被传入 RBAC 服务的注册流程：
 
@@ -182,7 +182,7 @@ if err := svc.EnsureAdminHasAllPermissions(ctx); err != nil {
 - 额外追加的 `system:admin` 权限是管理员总入口，用于后续的特权判断。
 - `EnsureAdminHasAllPermissions()` 会确保默认的 `ADMIN` 角色拥有全量权限，防止管理员被意外锁死。
 
-### 步骤4：执行（The Enforcement）
+### 步骤 4：执行（The Enforcement）
 
 终于轮到运行时。下面的时序图展示了 `POST /v1/user/delete` 的完整执行链路：
 
@@ -209,7 +209,7 @@ sequenceDiagram
 逐步拆解：
 
 1. **路由匹配**：Gin 引擎根据 Method + Path 匹配到用户模块的 `delete` 路由。
-2. **认证中间件**：验证请求头中的 JWT，解析出用户ID、角色等信息，并放入上下文供后续使用。
+2. **认证中间件**：验证请求头中的 JWT，解析出用户 ID、角色等信息，并放入上下文供后续使用。
 3. **权限中间件触发**：由于路由声明了 `RequiredPermission`，中间件工厂会生成一个检查 `user:delete` 的函数。
 4. **管理员豁免**：在 `internal/rbac/middleware.go` 中，首先检查用户的角色，如果包含 `ADMIN`（大小写不敏感），直接放行。
 5. **数据库权限校验**：非管理员用户则调用 `userRepo.HasPermission()`（实现在 `internal/rbac/repository.go`），通过多表 JOIN：
@@ -226,7 +226,7 @@ sequenceDiagram
 
 ## 第三章：动态管理 - 如何在运行时调整权限
 
-高级RBAC不仅仅在开发期发挥作用，还提供了运行时管理能力。`internal/rbac/handler.go` 暴露了一组位于 `/v1/rbac/` 前缀下的管理API：
+高级 RBAC 不仅仅在开发期发挥作用，还提供了运行时管理能力。`internal/rbac/handler.go` 暴露了一组位于 `/v1/rbac/` 前缀下的管理 API：
 
 - 角色管理：`role/create`、`role/update`、`role/delete`、`role/list`
 - 权限分配：`role/assign_permissions`、`role/get_permissions`
@@ -250,7 +250,7 @@ sequenceDiagram
 
 - **RBAC 是可选插件**：`internal/server` 包负责框架级启动流程，但它必须保持“中立”，不能直接 `import ".../internal/rbac"`，否则 RBAC 就再也不是可拔插的组件。
 - **需要一份契约**：我们让路由器暴露一个“工厂注入”入口，谁愿意接管权限控制，就往里塞一个工厂函数。没有人塞，它就什么都不做，继续运行默认守卫模式。
-- **`SetPermissionEnforcerFactory` 就是这份契约**：名字中的 *Set* 表示一次性的注入动作，*Factory* 则揭示传入的是“用于生产中间件的函数”，而不是现成的中间件实例。
+- **`SetPermissionEnforcerFactory` 就是这份契约**：名字中的 _Set_ 表示一次性的注入动作，_Factory_ 则揭示传入的是“用于生产中间件的函数”，而不是现成的中间件实例。
 
 ### 4.2 它是如何工作的？
 
@@ -292,17 +292,65 @@ graph TD
 
 - Router 专注于路由注册，不关心权限策略的实现细节；
 - RBAC 插件只在被启用时才注入中间件工厂，未启用时 Router 依旧正常工作；
-- 中央路由器与 RBAC 插件之间通过 `SetPermissionEnforcerFactory` 形成一条清晰的“蜘蛛网”连接，新人开发者只要顺着这条线，就能理解插件化权限校验的全部来龙去脉。
+- 中央路由器与 RBAC 插件之间通过 `SetPermissionEnforcerFactory` 形成一条清晰的“蜘蛛网”连接，开发者只要顺着这条线，就能理解插件化权限校验的全部来龙去脉。
+
+---
+
+## 第五章：为什么它是“可插拔”的？
+
+到这里，你可能会问：如果某个项目根本不需要这么细粒度的权限控制，是否可以直接删除 `internal/rbac` 目录？
+
+答案是：完全可以。这正是我们“插件化”架构设计的终极检验标准。
+
+### 5.1 核心解耦设计
+
+`internal/server` 启动流程对 rbac 模块是“无知”的。
+
+唯一的连接点是 `SetPermissionEnforcerFactory`，这是一个可选的注入点，而非强依赖。
+
+因此，删除 `internal/rbac` 并不会破坏编译或运行。
+
+### 5.2 插件的激活机制
+
+在 `internal/server/bootstrap.go` 中，`rbac.Register` 默认是注释掉的。
+
+如果 `internal/rbac` 目录被删除，这行代码连编译都不会触发。
+
+没有注册调用，就不会注入 `permissionEnforcer`，系统自动维持最简模式。
+
+### 5.3 路由守卫的降级兼容
+
+`PublicRoutes` 与 `AuthenticatedRoutes`：与 RBAC 无关，始终可用。
+
+`AdminRoutes`：采用“渐进式增强”策略：
+
+默认检查用户角色名是否为 `ADMIN`。
+
+只有在 RBAC 插件启用并注入工厂时，才会升级为基于权限表的完整校验。
+
+插件未启用时，中间件安全跳过，保持基础管理员守卫。
+
+### 5.4 小结：简洁与扩展的平衡
+
+这套脚手架交付给不同团队时，会自然分流为两种模式：
+
+- 轻量模式：只要基础的公共/登录/管理员三层守卫，直接删除 `internal/rbac`，得到一个极简纯净的起点。
+- 进阶模式：需要复杂权限体系时，只需取消 `internal/app/bootstrap.go` 中 `rbac` 条目的注释，即刻“解锁”完整的 RBAC 插件能力。
+
+换句话说：
+
+- 不需要 RBAC → 完全无感。
+- 需要 RBAC → 开箱即用。
+
+这就是“可插拔”架构的价值所在。
 
 ---
 
 ## 总结
 
-通过以上讲解，相信你已经对高级RBAC插件模式有了整体认识：
+通过以上讲解，相信你已经对高级 RBAC 插件模式有了整体认识：
 
-- **可插拔**：不需要时保持默认守卫模式，需要时只需启用RBAC Feature。
+- **可插拔**：不需要时保持默认守卫模式，需要时只需启用 RBAC Feature。
 - **声明式**：在路由上写一行 `RequiredPermission` 即可完成权限声明。
 - **自动化**：启动期自动发现、自动建表、自动同步管理员权限，运行时自动校验。
-- **零心智负担**：统一常量、辅助函数、动态管理API，最大限度减少手工操作和重复劳动。
-
-当你为新接口添加权限时，记得回顾“生命周期四步曲”，系统会替你完成剩下的一切。欢迎继续探索更多业务模块，享受声明式权限带来的高效开发体验！
+- **零心智负担**：统一常量、辅助函数、动态管理 API，最大限度减少手工操作和重复劳动。
