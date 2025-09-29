@@ -7,27 +7,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
-type manualStep struct {
-	description string
-	commands    []string
-}
-
-type gitRemote struct {
-	name string
-	url  string
-	kind string
-}
-
-var templateRemoteIndicators = []string{
-	"service-template",
-	"project-template",
-	"Jayleonc/service",
-}
+// No longer needed manual steps or Git remote handling
 
 func runInit(root string) error {
 	fmt.Println("=== Project Initialization Wizard ===")
@@ -57,38 +41,20 @@ func runInit(root string) error {
 		fmt.Println("Go module path unchanged; skipping file updates.")
 	}
 
-	var manualSteps []manualStep
-
-	remotes, err := detectGitRemotes(root)
-	if err != nil {
-		fmt.Printf("⚠️ Unable to inspect Git remotes: %v\n", err)
-	} else if len(remotes) == 0 {
-		fmt.Println("未检测到任何 Git 远程仓库配置。")
-	} else {
-		for _, remote := range remotes {
-			fmt.Printf("- %s (%s) -> %s\n", remote.name, remote.kind, remote.url)
+	// Delete .git folder to remove original repository configuration
+	gitDir := filepath.Join(root, ".git")
+	if _, err := os.Stat(gitDir); err == nil {
+		fmt.Println("正在删除原始仓库配置...")
+		if err := os.RemoveAll(gitDir); err != nil {
+			fmt.Printf("⚠️ 无法删除 .git 文件夹: %v\n", err)
+		} else {
+			fmt.Println("✅ 已删除原始仓库配置。您可以使用 'git init' 初始化新的仓库。")
 		}
-
-		for _, remote := range remotes {
-			if looksLikeTemplateRemote(remote.url) {
-				fmt.Printf("检测到 Git 远程 %q 指向模板仓库：%s\n", remote.name, remote.url)
-				newRemote, err := promptForGitRemote(reader)
-				if err != nil {
-					return err
-				}
-
-				if newRemote != "" {
-					manualSteps = append(manualSteps, manualStep{
-						description: fmt.Sprintf("Update your Git remote %q:", remote.name),
-						commands: []string{
-							fmt.Sprintf("git remote remove %s", remote.name),
-							fmt.Sprintf("git remote add %s %s", remote.name, newRemote),
-						},
-					})
-				}
-			}
-		}
+	} else if !os.IsNotExist(err) {
+		fmt.Printf("⚠️ 检查 .git 文件夹时出错: %v\n", err)
 	}
+
+	// No manual steps needed anymore
 
 	fmt.Println()
 	fmt.Println("Summary:")
@@ -98,18 +64,12 @@ func runInit(root string) error {
 		fmt.Println("- ℹ️ Go module path unchanged.")
 	}
 
-	if len(manualSteps) > 0 {
-		fmt.Println()
-		fmt.Println("Please perform the following final steps manually:")
-		for i, step := range manualSteps {
-			fmt.Printf("%d. %s\n", i+1, step.description)
-			for _, cmd := range step.commands {
-				fmt.Printf("   %s\n", cmd)
-			}
-		}
-	} else {
-		fmt.Println("No manual follow-up actions are required.")
+	// Add Git repository deletion to summary
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		fmt.Println("- ✅ 原始 Git 仓库配置已删除。")
 	}
+
+	fmt.Println("No manual follow-up actions are required.")
 
 	fmt.Println()
 	if dirName, err := projectDirectoryName(root); err == nil {
@@ -139,65 +99,7 @@ func promptForModulePath(reader *bufio.Reader, current string) (string, error) {
 	}
 }
 
-func promptForGitRemote(reader *bufio.Reader) (string, error) {
-	for {
-		fmt.Print("请输入新的 Git 仓库地址 (留空跳过): ")
-		input, err := readLine(reader)
-		if err != nil {
-			return "", err
-		}
-
-		if input == "" {
-			return "", nil
-		}
-
-		return input, nil
-	}
-}
-
-func looksLikeTemplateRemote(url string) bool {
-	lowered := strings.ToLower(url)
-	for _, indicator := range templateRemoteIndicators {
-		if strings.Contains(lowered, strings.ToLower(indicator)) {
-			return true
-		}
-	}
-	return false
-}
-
-func detectGitRemotes(root string) ([]gitRemote, error) {
-	cmd := exec.Command("git", "remote", "-v")
-	cmd.Dir = root
-
-	output, err := cmd.Output()
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("git remote -v failed: %s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return nil, err
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var remotes []gitRemote
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) < 3 {
-			continue
-		}
-
-		remotes = append(remotes, gitRemote{
-			name: fields[0],
-			url:  fields[1],
-			kind: strings.Trim(fields[2], "()"),
-		})
-	}
-
-	return remotes, nil
-}
+// Git remote handling functions removed as they are no longer needed
 
 func projectDirectoryName(root string) (string, error) {
 	abs, err := filepath.Abs(root)
