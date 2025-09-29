@@ -8,6 +8,7 @@ import (
 
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/ginx/response"
+	"github.com/Jayleonc/service/pkg/xerr"
 )
 
 // Handler 暴露认证模块的刷新令牌接口。
@@ -42,7 +43,7 @@ type refreshResponse struct {
 func (h *Handler) refresh(c *gin.Context) {
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrRefreshInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 

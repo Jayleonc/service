@@ -1,12 +1,9 @@
 package rbac
 
-import "errors"
+import "github.com/Jayleonc/service/pkg/xerr"
 
+// RBAC 模块错误码范围：3000-3999
 var (
-	// ErrInvalidPayload indicates the request body failed validation.
-	ErrInvalidPayload = errors.New("invalid payload")
-	// ErrResourceNotFound indicates the target role or permission does not exist.
-	ErrResourceNotFound = errors.New("resource not found")
-	// ErrPermissionDenied indicates the user lacks the required permission.
-	ErrPermissionDenied = errors.New("permission denied")
+	ErrResourceNotFound = xerr.New(3001, "resource not found")
+	ErrPermissionDenied = xerr.New(3002, "permission denied")
 )

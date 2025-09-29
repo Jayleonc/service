@@ -11,6 +11,7 @@ import (
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/ginx/request"
 	"github.com/Jayleonc/service/pkg/ginx/response"
+	"github.com/Jayleonc/service/pkg/xerr"
 )
 
 // Handler 对外提供用户模块的 HTTP 接口。
@@ -45,7 +46,7 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 func (h *Handler) register(c *gin.Context) {
 	var req RegisterInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrRegisterInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -65,7 +66,7 @@ func (h *Handler) register(c *gin.Context) {
 func (h *Handler) login(c *gin.Context) {
 	var req LoginInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrLoginInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -104,7 +105,7 @@ func (h *Handler) updateMe(c *gin.Context) {
 
 	var req UpdateProfileInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrUpdateMeInvalidBody)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -120,7 +121,7 @@ func (h *Handler) updateMe(c *gin.Context) {
 func (h *Handler) create(c *gin.Context) {
 	var req CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrCreateInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -144,13 +145,13 @@ func (h *Handler) update(c *gin.Context) {
 		Phone string `json:"phone"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrUpdateInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrInvalidUserID)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid user id"))
 		return
 	}
 
@@ -172,13 +173,13 @@ func (h *Handler) delete(c *gin.Context) {
 		ID string `json:"id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrDeleteInvalidUserID)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid user id"))
 		return
 	}
 
@@ -197,7 +198,7 @@ func (h *Handler) list(c *gin.Context) {
 		Email      string             `json:"email"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrListInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
@@ -220,13 +221,13 @@ func (h *Handler) assignRoles(c *gin.Context) {
 		Roles []string `json:"roles" binding:"required,min=1,dive,required"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		response.Error(c, http.StatusBadRequest, ErrAssignInvalidPayload)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
 		return
 	}
 
 	userID, err := uuid.Parse(payload.ID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, ErrAssignInvalidUserID)
+		response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid user id"))
 		return
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/pkg/constant"
 	"github.com/Jayleonc/service/pkg/ginx/response"
+	"github.com/Jayleonc/service/pkg/xerr"
 )
 
 // PermissionChecker describes the ability to validate whether a user possesses a permission.
@@ -32,7 +33,7 @@ func NewPermissionMiddleware(checker PermissionChecker) func(string) gin.Handler
 
 			session, ok := feature.GetAuthContext(c)
 			if !ok {
-				response.Error(c, http.StatusUnauthorized, ErrPermissionDenied)
+				response.Error(c, http.StatusUnauthorized, xerr.ErrUnauthorized.WithMessage("missing authorization context"))
 				c.Abort()
 				return
 			}
