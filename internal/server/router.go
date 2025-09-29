@@ -145,8 +145,8 @@ func collapsePath(path string) string {
 	return "/" + strings.Trim(path, "/")
 }
 
-// UsePermissionEnforcer 注册权限中间件工厂函数。
-func (r *Router) UsePermissionEnforcer(factory func(string) gin.HandlerFunc) {
+// SetPermissionEnforcerFactory 注册权限中间件工厂函数。
+func (r *Router) SetPermissionEnforcerFactory(factory func(string) gin.HandlerFunc) {
 	if r == nil {
 		return
 	}
