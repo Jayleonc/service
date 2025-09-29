@@ -13,9 +13,29 @@ import (
 	"github.com/Jayleonc/service/pkg/constant"
 )
 
+// RepositoryContract 定义了 Service 赖以运作的仓储能力。
+type RepositoryContract interface {
+	Migrate(ctx context.Context) error
+	CreateRole(ctx context.Context, role *Role) error
+	UpdateRole(ctx context.Context, role *Role) error
+	DeleteRole(ctx context.Context, id uuid.UUID) error
+	ListRoles(ctx context.Context) ([]Role, error)
+	FindRoleByID(ctx context.Context, id uuid.UUID) (*Role, error)
+	FindRoleByName(ctx context.Context, name string) (*Role, error)
+	FindRolesByNames(ctx context.Context, names []string) ([]*Role, error)
+	CreatePermission(ctx context.Context, permission *Permission) error
+	UpdatePermission(ctx context.Context, permission *Permission) error
+	DeletePermission(ctx context.Context, id uuid.UUID) error
+	ListPermissions(ctx context.Context) ([]Permission, error)
+	FindPermissionByID(ctx context.Context, id uuid.UUID) (*Permission, error)
+	FindPermissionsByKeys(ctx context.Context, keys []string) ([]*Permission, error)
+	ReplaceRolePermissions(ctx context.Context, role *Role, permissions []*Permission) error
+	UserHasPermission(ctx context.Context, userID uuid.UUID, permission string) (bool, error)
+}
+
 // Service orchestrates RBAC operations.
 type Service struct {
-	repo *Repository
+	repo RepositoryContract
 }
 
 var (
@@ -41,6 +61,8 @@ func DefaultService() *Service {
 func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
+
+var _ RepositoryContract = (*Repository)(nil)
 
 // EnsureService initialises the default service instance if it has not been created yet.
 func EnsureService(ctx context.Context, repo *Repository) (*Service, error) {
