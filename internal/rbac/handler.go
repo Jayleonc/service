@@ -1,6 +1,7 @@
 package rbac
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -14,13 +15,29 @@ import (
 
 // Handler exposes management APIs for the RBAC module.
 type Handler struct {
-	svc *Service
+	svc ServiceContract
+}
+
+// ServiceContract 定义了 Handler 所需的服务层能力。
+type ServiceContract interface {
+	CreateRole(ctx context.Context, input CreateRoleInput) (*Role, error)
+	UpdateRole(ctx context.Context, input UpdateRoleInput) (*Role, error)
+	DeleteRole(ctx context.Context, input DeleteRoleInput) error
+	ListRoles(ctx context.Context) ([]Role, error)
+	AssignPermissions(ctx context.Context, input AssignRolePermissionsInput) (*Role, error)
+	GetRolePermissions(ctx context.Context, roleID uuid.UUID) ([]string, error)
+	CreatePermission(ctx context.Context, input CreatePermissionInput) (*Permission, error)
+	UpdatePermission(ctx context.Context, input UpdatePermissionInput) (*Permission, error)
+	DeletePermission(ctx context.Context, input DeletePermissionInput) error
+	ListPermissions(ctx context.Context) ([]Permission, error)
 }
 
 // NewHandler constructs a handler with the provided service dependency.
 func NewHandler(svc *Service) *Handler {
 	return &Handler{svc: svc}
 }
+
+var _ ServiceContract = (*Service)(nil)
 
 // GetRoutes declares the RBAC management endpoints.
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
