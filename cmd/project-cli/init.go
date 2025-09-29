@@ -59,28 +59,6 @@ func runInit(root string) error {
 
 	var manualSteps []manualStep
 
-	if dirName, err := projectDirectoryName(root); err == nil {
-		renameQuestion := fmt.Sprintf("当前项目目录名为 %s，是否需要重命名？(y/N)", dirName)
-		shouldRename, err := promptYesNo(reader, renameQuestion, false)
-		if err != nil {
-			return err
-		}
-
-		if shouldRename {
-			newName, err := promptForDirectoryName(reader, dirName)
-			if err != nil {
-				return err
-			}
-
-			manualSteps = append(manualSteps, manualStep{
-				description: "Rename the project directory:",
-				commands:    []string{fmt.Sprintf("mv %s %s", dirName, newName)},
-			})
-		}
-	} else {
-		fmt.Printf("⚠️ Unable to determine project directory name: %v\n", err)
-	}
-
 	remotes, err := detectGitRemotes(root)
 	if err != nil {
 		fmt.Printf("⚠️ Unable to inspect Git remotes: %v\n", err)
@@ -134,6 +112,13 @@ func runInit(root string) error {
 	}
 
 	fmt.Println()
+	if dirName, err := projectDirectoryName(root); err == nil {
+		fmt.Printf("💡 专业提示：建议在完成所有步骤后，手动将项目根目录 `%s` 重命名为具体的项目名称（例如: mv %s my_awesome_project）。\n", dirName, dirName)
+	} else {
+		fmt.Println("💡 专业提示：建议在完成所有步骤后，手动将项目根目录重命名为具体的项目名称（例如: mv service my_awesome_project）。")
+	}
+
+	fmt.Println()
 	fmt.Println("Project initialisation complete. You can now comment out or remove the init-project target in the Makefile to prevent re-running it.")
 	return nil
 }
@@ -148,28 +133,6 @@ func promptForModulePath(reader *bufio.Reader, current string) (string, error) {
 
 		if input == "" {
 			return current, nil
-		}
-
-		return input, nil
-	}
-}
-
-func promptForDirectoryName(reader *bufio.Reader, current string) (string, error) {
-	for {
-		fmt.Print("请输入新的项目目录名: ")
-		input, err := readLine(reader)
-		if err != nil {
-			return "", err
-		}
-
-		if input == "" {
-			fmt.Println("Directory name cannot be empty.")
-			continue
-		}
-
-		if input == current {
-			fmt.Println("新目录名与当前目录名一致，如无需重命名请按 Enter 跳过。")
-			continue
 		}
 
 		return input, nil
