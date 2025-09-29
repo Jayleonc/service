@@ -83,11 +83,11 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{- if .EnableRBAC}}
-                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionCreate)},
-                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionRead)},
-                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionUpdate)},
-                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionDelete)},
-                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionList)},
+                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionCreate)},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionRead)},
+                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionUpdate)},
+                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionDelete)},
+                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionList)},
 {{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
@@ -545,11 +545,11 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{- if .EnableRBAC}}
-                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionCreate)},
-                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionRead)},
-                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionUpdate)},
-                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionDelete)},
-                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionList)},
+                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionCreate)},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionRead)},
+                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionUpdate)},
+                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionDelete)},
+                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey(rbac.Resource{{.PascalName}}, rbac.ActionList)},
 {{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
