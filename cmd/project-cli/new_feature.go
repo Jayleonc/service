@@ -192,6 +192,12 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 		return fmt.Errorf("update feature registry: %w", err)
 	}
 
+	if enableRBAC {
+		if err := registerRBACResource(filepath.Join(root, "internal", "rbac", "permission_def.go"), data.PascalName, data.FeatureName); err != nil {
+			return fmt.Errorf("register rbac resource: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -328,6 +334,62 @@ func registerModuleCodeBase(path, pascalName string, base int) error {
 
 	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write codes.go: %w", err)
+	}
+
+	return nil
+}
+
+func registerRBACResource(path, pascalName, featureName string) error {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("parse permission_def.go: %w", err)
+	}
+
+	constName := fmt.Sprintf("Resource%s", pascalName)
+
+	var constBlock *ast.GenDecl
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.CONST {
+			continue
+		}
+
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+
+			for _, name := range valueSpec.Names {
+				if name.Name == constName {
+					return nil
+				}
+				if strings.HasPrefix(name.Name, "Resource") {
+					constBlock = gen
+				}
+			}
+		}
+	}
+
+	if constBlock == nil {
+		return errors.New("resource constants block not found in permission_def.go")
+	}
+
+	spec := &ast.ValueSpec{
+		Names:  []*ast.Ident{ast.NewIdent(constName)},
+		Values: []ast.Expr{&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(featureName)}},
+	}
+
+	constBlock.Specs = append(constBlock.Specs, spec)
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, file); err != nil {
+		return fmt.Errorf("format permission_def.go: %w", err)
+	}
+
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write permission_def.go: %w", err)
 	}
 
 	return nil
