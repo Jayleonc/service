@@ -1,3 +1,4 @@
+// Package constant contains shared symbolic values used across modules.
 package constant
 
 const (
