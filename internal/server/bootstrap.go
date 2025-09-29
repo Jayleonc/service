@@ -112,7 +112,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 	}
 
 	if deps.Router != nil && deps.PermissionEnforcer != nil {
-		deps.Router.UsePermissionEnforcer(deps.PermissionEnforcer)
+		deps.Router.SetPermissionEnforcerFactory(deps.PermissionEnforcer)
 	}
 
 	if deps.Guards != nil && deps.PermissionEnforcer != nil {

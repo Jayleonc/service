@@ -19,7 +19,7 @@ import (
 // RouteRegistrar 定义功能模块注册 HTTP 路由所需的能力。
 type RouteRegistrar interface {
 	RegisterModule(pathPrefix string, routes ModuleRoutes)
-	UsePermissionEnforcer(func(permission string) gin.HandlerFunc)
+	SetPermissionEnforcerFactory(func(permission string) gin.HandlerFunc)
 	CollectedRoutePermissions() []string
 }
 

@@ -22,7 +22,7 @@ func Register(ctx context.Context, deps *feature.Dependencies) error {
 	factory := NewPermissionMiddleware(svc)
 	if factory != nil {
 		deps.PermissionEnforcer = factory
-		deps.Router.UsePermissionEnforcer(factory)
+		deps.Router.SetPermissionEnforcerFactory(factory)
 	}
 
 	handler := NewHandler(svc)
