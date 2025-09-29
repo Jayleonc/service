@@ -5,10 +5,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"unicode"
@@ -132,7 +136,14 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 
 	display := displayName(name)
 	entityName := strings.ReplaceAll(display, " ", "")
-	const suggestedErrorCodeStart = 5000
+
+	registry, err := loadErrorCodeRegistry(filepath.Join(root, "pkg", "xerr", "codes.go"))
+	if err != nil {
+		return fmt.Errorf("load error code registry: %w", err)
+	}
+
+	nextCodeBase := registry.nextModuleCodeBase()
+	codeRangeEnd := nextCodeBase + registry.moduleRange - 1
 
 	data := featureTemplateData{
 		Package:               name,
@@ -144,20 +155,21 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 		EntityVar:             lowerFirst(entityName),
 		EnableRBAC:            enableRBAC,
 		PermissionPrefix:      fmt.Sprintf("%s:", name),
-		SuggestedErrorCode:    suggestedErrorCodeStart,
-		SuggestedErrorCodeEnd: suggestedErrorCodeStart + 999,
+		PascalName:            entityName,
+		SuggestedErrorCode:    nextCodeBase,
+		SuggestedErrorCodeEnd: codeRangeEnd,
 	}
 
 	files := map[string][]byte{}
-	var err error
+	var renderErr error
 	switch featureType {
 	case "simple":
-		files, err = renderSimpleFeature(data)
+		files, renderErr = renderSimpleFeature(data)
 	case "structured":
-		files, err = renderStructuredFeature(data)
+		files, renderErr = renderStructuredFeature(data)
 	}
-	if err != nil {
-		return err
+	if renderErr != nil {
+		return renderErr
 	}
 
 	for filename, content := range files {
@@ -165,6 +177,10 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 		if err := os.WriteFile(path, content, 0o644); err != nil {
 			return fmt.Errorf("write %s: %w", path, err)
 		}
+	}
+
+	if err := registerModuleCodeBase(filepath.Join(root, "pkg", "xerr", "codes.go"), data.PascalName, nextCodeBase); err != nil {
+		return fmt.Errorf("update error code registry: %w", err)
 	}
 
 	modulePath, err := goModulePath(root)
@@ -189,8 +205,132 @@ type featureTemplateData struct {
 	EntityVar             string
 	EnableRBAC            bool
 	PermissionPrefix      string
+	PascalName            string
 	SuggestedErrorCode    int
 	SuggestedErrorCodeEnd int
+}
+
+type errorCodeRegistry struct {
+	moduleRange int
+	bases       map[string]int
+}
+
+func loadErrorCodeRegistry(path string) (*errorCodeRegistry, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("parse codes.go: %w", err)
+	}
+
+	registry := &errorCodeRegistry{bases: make(map[string]int)}
+
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.CONST {
+			continue
+		}
+
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok || len(valueSpec.Names) == 0 || len(valueSpec.Values) == 0 {
+				continue
+			}
+
+			lit, ok := valueSpec.Values[0].(*ast.BasicLit)
+			if !ok || lit.Kind != token.INT {
+				continue
+			}
+
+			v, err := strconv.Atoi(lit.Value)
+			if err != nil {
+				return nil, fmt.Errorf("parse constant value for %s: %w", valueSpec.Names[0].Name, err)
+			}
+
+			for _, name := range valueSpec.Names {
+				switch {
+				case name.Name == "ModuleCodeRange":
+					registry.moduleRange = v
+				case strings.HasSuffix(name.Name, "ModuleCodeBase"):
+					registry.bases[name.Name] = v
+				}
+			}
+		}
+	}
+
+	if registry.moduleRange == 0 {
+		return nil, errors.New("ModuleCodeRange is not defined in codes.go")
+	}
+
+	return registry, nil
+}
+
+func (r *errorCodeRegistry) nextModuleCodeBase() int {
+	highest := 0
+	for _, base := range r.bases {
+		if base > highest {
+			highest = base
+		}
+	}
+	if highest == 0 {
+		return r.moduleRange
+	}
+	return highest + r.moduleRange
+}
+
+func registerModuleCodeBase(path, pascalName string, base int) error {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return fmt.Errorf("parse codes.go: %w", err)
+	}
+
+	constName := fmt.Sprintf("%sModuleCodeBase", pascalName)
+
+	var constBlock *ast.GenDecl
+	for _, decl := range file.Decls {
+		gen, ok := decl.(*ast.GenDecl)
+		if !ok || gen.Tok != token.CONST {
+			continue
+		}
+
+		for _, spec := range gen.Specs {
+			valueSpec, ok := spec.(*ast.ValueSpec)
+			if !ok {
+				continue
+			}
+
+			for _, name := range valueSpec.Names {
+				if name.Name == constName {
+					return fmt.Errorf("module code base %s already exists", constName)
+				}
+				if name.Name == "ModuleCodeRange" || strings.HasSuffix(name.Name, "ModuleCodeBase") {
+					constBlock = gen
+				}
+			}
+		}
+	}
+
+	if constBlock == nil {
+		return errors.New("constants block not found in codes.go")
+	}
+
+	spec := &ast.ValueSpec{
+		Names:  []*ast.Ident{ast.NewIdent(constName)},
+		Values: []ast.Expr{&ast.BasicLit{Kind: token.INT, Value: strconv.Itoa(base)}},
+	}
+
+	constBlock.Specs = append(constBlock.Specs, spec)
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, file); err != nil {
+		return fmt.Errorf("format codes.go: %w", err)
+	}
+
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write codes.go: %w", err)
+	}
+
+	return nil
 }
 
 func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {

@@ -99,13 +99,15 @@ AuthenticatedRoutes: []feature.RouteDefinition{
 func (h *Handler) create(c *gin.Context) {
 var input CreateInput
 if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+response.Error(c, http.StatusBadRequest,
+        xerr.ErrBadRequest.WithMessage("invalid request payload"))
 return
 }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
+response.Error(c, http.StatusInternalServerError,
+        xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -125,26 +127,30 @@ response.SuccessWithStatus(c, http.StatusCreated, record)
 func (h *Handler) getByID(c *gin.Context) {
         var input GetByIDInput
 if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
+response.Error(c, http.StatusInternalServerError,
+        xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
 var record {{.EntityName}}
 if err := db.WithContext(c.Request.Context()).First(&record, "id = ?", id).Error; err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
+response.Error(c, http.StatusNotFound,
+        xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -157,19 +163,22 @@ response.Success(c, record)
 func (h *Handler) update(c *gin.Context) {
         var input UpdateInput
 if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
+response.Error(c, http.StatusInternalServerError,
+        xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -177,7 +186,8 @@ ctx := c.Request.Context()
 var record {{.EntityName}}
         if err := db.WithContext(ctx).First(&record, "id = ?", id).Error; err != nil {
                 if errors.Is(err, gorm.ErrRecordNotFound) {
-                        response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
+                        response.Error(c, http.StatusNotFound,
+                                xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
                         return
                 }
                 response.Error(c, http.StatusInternalServerError, err)
@@ -197,19 +207,22 @@ response.Success(c, record)
 func (h *Handler) delete(c *gin.Context) {
         var input DeleteInput
 if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
+response.Error(c, http.StatusInternalServerError,
+        xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -223,16 +236,18 @@ response.Success(c, gin.H{"id": id})
 
 func (h *Handler) list(c *gin.Context) {
         var query ListQuery
-        if err := c.ShouldBindJSON(&query); err != nil {
+if err := c.ShouldBindJSON(&query); err != nil {
                 if !errors.Is(err, io.EOF) {
-                        response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                        response.Error(c, http.StatusBadRequest,
+                                xerr.ErrBadRequest.WithMessage("invalid request payload"))
                         return
                 }
-        }
+}
 
 db := database.Default()
 if db == nil {
-response.Error(c, http.StatusInternalServerError, xerr.ErrInternalServer.WithMessage("database is not initialised"))
+response.Error(c, http.StatusInternalServerError,
+        xerr.ErrInternalServer.WithMessage("database is not initialised"))
 return
 }
 
@@ -543,7 +558,8 @@ AuthenticatedRoutes: []feature.RouteDefinition{
 func (h *Handler) create(c *gin.Context) {
 var input CreateInput
 if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+response.Error(c, http.StatusBadRequest,
+        xerr.ErrBadRequest.WithMessage("invalid request payload"))
 return
 }
 
@@ -561,20 +577,23 @@ response.SuccessWithStatus(c, http.StatusCreated, entity)
 func (h *Handler) getByID(c *gin.Context) {
         var input GetByIDInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
 record, err := h.service.GetByID(c.Request.Context(), id)
 if err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
+response.Error(c, http.StatusNotFound,
+        xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -587,13 +606,15 @@ response.Success(c, record)
 func (h *Handler) update(c *gin.Context) {
         var input UpdateInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
@@ -603,7 +624,8 @@ func (h *Handler) update(c *gin.Context) {
         })
 if err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
+response.Error(c, http.StatusNotFound,
+        xerr.ErrNotFound.WithMessage("{{.EntityVar}} not found"))
 return
 }
 response.Error(c, http.StatusInternalServerError, err)
@@ -616,13 +638,15 @@ response.Success(c, record)
 func (h *Handler) delete(c *gin.Context) {
         var input DeleteInput
         if err := c.ShouldBindJSON(&input); err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid request payload"))
                 return
         }
 
         id, err := uuid.Parse(input.ID)
         if err != nil {
-                response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
+                response.Error(c, http.StatusBadRequest,
+                        xerr.ErrBadRequest.WithMessage("invalid resource identifier"))
                 return
         }
 
@@ -638,7 +662,8 @@ func (h *Handler) list(c *gin.Context) {
         var query ListQuery
         if err := c.ShouldBindJSON(&query); err != nil {
                 if !errors.Is(err, io.EOF) {
-                        response.Error(c, http.StatusBadRequest, xerr.ErrBadRequest.WithMessage("invalid request payload"))
+                        response.Error(c, http.StatusBadRequest,
+                                xerr.ErrBadRequest.WithMessage("invalid request payload"))
                         return
                 }
         }

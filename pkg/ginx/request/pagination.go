@@ -1,3 +1,4 @@
+// Package request defines common structures for parsing API request payloads.
 package request
 
 // Pagination 定义了标准的分页请求参数
