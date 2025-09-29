@@ -241,13 +241,15 @@ func createFeature(root, name, featureType string, enableRBAC bool) error {
 	}
 
 	display := displayName(name)
+	entityName := strings.ReplaceAll(display, " ", "")
 	data := featureTemplateData{
 		Package:          name,
 		Name:             name,
 		FeatureName:      name,
 		DisplayName:      display,
 		LogMessage:       fmt.Sprintf("%s feature initialised", display),
-		EntityName:       strings.ReplaceAll(display, " ", ""),
+		EntityName:       entityName,
+		EntityVar:        lowerFirst(entityName),
 		EnableRBAC:       enableRBAC,
 		PermissionPrefix: fmt.Sprintf("%s:", name),
 	}
@@ -290,11 +292,17 @@ type featureTemplateData struct {
 	DisplayName      string
 	LogMessage       string
 	EntityName       string
+	EntityVar        string
 	EnableRBAC       bool
 	PermissionPrefix string
 }
 
 func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
+	model, err := renderGoTemplate(modelTemplate, data)
+	if err != nil {
+		return nil, err
+	}
+
 	handler, err := renderGoTemplate(simpleHandlerTemplate, data)
 	if err != nil {
 		return nil, err
@@ -306,12 +314,18 @@ func renderSimpleFeature(data featureTemplateData) (map[string][]byte, error) {
 	}
 
 	return map[string][]byte{
+		"model.go":    model,
 		"handler.go":  handler,
 		"register.go": register,
 	}, nil
 }
 
 func renderStructuredFeature(data featureTemplateData) (map[string][]byte, error) {
+	model, err := renderGoTemplate(modelTemplate, data)
+	if err != nil {
+		return nil, err
+	}
+
 	repository, err := renderGoTemplate(structuredRepositoryTemplate, data)
 	if err != nil {
 		return nil, err
@@ -333,6 +347,7 @@ func renderStructuredFeature(data featureTemplateData) (map[string][]byte, error
 	}
 
 	return map[string][]byte{
+		"model.go":      model,
 		"repository.go": repository,
 		"service.go":    service,
 		"handler.go":    handler,
@@ -570,255 +585,687 @@ func title(word string) string {
 	return string(runes)
 }
 
+func lowerFirst(word string) string {
+	if word == "" {
+		return ""
+	}
+
+	runes := []rune(word)
+	runes[0] = unicode.ToLower(runes[0])
+	return string(runes)
+}
+
+const modelTemplate = `package {{.Package}}
+
+import (
+"github.com/google/uuid"
+
+"github.com/Jayleonc/service/pkg/model"
+)
+
+// {{.EntityName}} 定义了 {{.DisplayName}} 实体的数据库结构。
+type {{.EntityName}} struct {
+ID          uuid.UUID ` + "`gorm:\"type:uuid;primaryKey\"`" + `
+Name        string    ` + "`gorm:\"size:255\" json:\"name\"`" + `
+Description string    ` + "`gorm:\"size:512\" json:\"description\"`" + `
+model.Base
+}
+
+// TableName overrides the default gorm table name.
+func ({{.EntityName}}) TableName() string {
+return "{{.Name}}"
+}
+`
+
 const simpleHandlerTemplate = `package {{.Package}}
 
 import (
-        "net/http"
+"errors"
+"net/http"
 
-        "github.com/gin-gonic/gin"
+"github.com/gin-gonic/gin"
+"github.com/google/uuid"
+"gorm.io/gorm"
 
-        "github.com/Jayleonc/service/internal/feature"
-        "github.com/Jayleonc/service/pkg/ginx/response"
-        "github.com/Jayleonc/service/pkg/xerr"
+"github.com/Jayleonc/service/internal/feature"
+"github.com/Jayleonc/service/pkg/database"
+"github.com/Jayleonc/service/pkg/ginx/paginator"
+"github.com/Jayleonc/service/pkg/ginx/request"
+"github.com/Jayleonc/service/pkg/ginx/response"
+"github.com/Jayleonc/service/pkg/xerr"
 )
 
 var (
-        errEchoInvalidPayload = xerr.New(1, "invalid request payload")
+errInvalidPayload     = xerr.New(1, "invalid request payload")
+errInvalidQuery       = xerr.New(2, "invalid query parameters")
+errRecordNotFound     = xerr.New(3, "{{.EntityVar}} not found")
+errInvalidIdentifier  = xerr.New(4, "invalid resource identifier")
+errDatabaseNotReady   = xerr.New(5, "database is not initialised")
 )
+
+// CreateInput 定义创建 {{.DisplayName}} 的请求体。
+type CreateInput struct {
+Name        string ` + "`json:\"name\" binding:\"required\"`" + `
+Description string ` + "`json:\"description\"`" + `
+}
+
+// UpdateInput 定义更新 {{.DisplayName}} 的请求体。
+type UpdateInput struct {
+Name        *string ` + "`json:\"name\" binding:\"omitempty\"`" + `
+Description *string ` + "`json:\"description\" binding:\"omitempty\"`" + `
+}
+
+// ListQuery 描述列表查询可用的分页和过滤参数。
+type ListQuery struct {
+Page     int    ` + "`form:\"page\"`" + `
+PageSize int    ` + "`form:\"pageSize\"`" + `
+OrderBy  string ` + "`form:\"orderBy\"`" + `
+Name     string ` + "`form:\"name\"`" + `
+}
 
 type Handler struct{}
 
 func NewHandler() *Handler {
-        return &Handler{}
+return &Handler{}
 }
 
 // GetRoutes 在这里定义模块的相对路由，无需包含模块名。
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
-        return feature.ModuleRoutes{
-                PublicRoutes: []feature.RouteDefinition{
-                        {{if .EnableRBAC}}
-                        {Path: "ping", Handler: h.ping, RequiredPermission: "{{.PermissionPrefix}}ping"},
-                        {{else}}
-                        {Path: "ping", Handler: h.ping},
-                        {{end}}
-                },
-                AuthenticatedRoutes: []feature.RouteDefinition{
-                        {{if .EnableRBAC}}
-                        {Path: "echo", Handler: h.echo, RequiredPermission: "{{.PermissionPrefix}}echo"},
-                        {{else}}
-                        {Path: "echo", Handler: h.echo},
-                        {{end}}
-                },
-        }
+return feature.ModuleRoutes{
+AuthenticatedRoutes: []feature.RouteDefinition{
+{{if .EnableRBAC}}
+{Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
+{Path: ":id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
+{Path: ":id/update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
+{Path: ":id/delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
+{Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+{{else}}
+{Path: "create", Handler: h.create},
+{Path: ":id", Handler: h.getByID},
+{Path: ":id/update", Handler: h.update},
+{Path: ":id/delete", Handler: h.delete},
+{Path: "list", Handler: h.list},
+{{end}}
+},
+}
 }
 
-func (h *Handler) ping(c *gin.Context) {
-        response.Success(c, gin.H{"message": "{{.DisplayName}} pong"})
+func (h *Handler) create(c *gin.Context) {
+var input CreateInput
+if err := c.ShouldBindJSON(&input); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidPayload)
+return
 }
 
-func (h *Handler) echo(c *gin.Context) {
-        var req struct {
-                Message string ` + "`json:\"message\" binding:\"required\"`" + `
-        }
-        if err := c.ShouldBindJSON(&req); err != nil {
-                response.Error(c, http.StatusBadRequest, errEchoInvalidPayload)
-                return
-        }
+db := database.Default()
+if db == nil {
+response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+return
+}
 
-        response.Success(c, gin.H{"message": req.Message})
+record := &{{.EntityName}}{
+ID:          uuid.New(),
+Name:        input.Name,
+Description: input.Description,
+}
+
+if err := db.WithContext(c.Request.Context()).Create(record).Error; err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.SuccessWithStatus(c, http.StatusCreated, record)
+}
+
+func (h *Handler) getByID(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
+
+db := database.Default()
+if db == nil {
+response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+return
+}
+
+var record {{.EntityName}}
+if err := db.WithContext(c.Request.Context()).First(&record, "id = ?", id).Error; err != nil {
+if errors.Is(err, gorm.ErrRecordNotFound) {
+response.Error(c, http.StatusNotFound, errRecordNotFound)
+return
+}
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, record)
+}
+
+func (h *Handler) update(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
+
+var input UpdateInput
+if err := c.ShouldBindJSON(&input); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidPayload)
+return
+}
+
+db := database.Default()
+if db == nil {
+response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+return
+}
+
+ctx := c.Request.Context()
+var record {{.EntityName}}
+if err := db.WithContext(ctx).First(&record, "id = ?", id).Error; err != nil {
+if errors.Is(err, gorm.ErrRecordNotFound) {
+response.Error(c, http.StatusNotFound, errRecordNotFound)
+return
+}
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+if input.Name != nil {
+record.Name = *input.Name
+}
+if input.Description != nil {
+record.Description = *input.Description
+}
+
+if err := db.WithContext(ctx).Save(&record).Error; err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, record)
+}
+
+func (h *Handler) delete(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
+
+db := database.Default()
+if db == nil {
+response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+return
+}
+
+if err := db.WithContext(c.Request.Context()).Delete(&{{.EntityName}}{}, "id = ?", id).Error; err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, gin.H{"id": id})
+}
+
+func (h *Handler) list(c *gin.Context) {
+var query ListQuery
+if err := c.ShouldBindQuery(&query); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidQuery)
+return
+}
+
+db := database.Default()
+if db == nil {
+response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
+return
+}
+
+pageReq := request.Pagination{
+Page:     query.Page,
+PageSize: query.PageSize,
+OrderBy:  query.OrderBy,
+}
+
+session := db.WithContext(c.Request.Context()).Model(&{{.EntityName}}{})
+if query.Name != "" {
+session = session.Where("name LIKE ?", "%"+query.Name+"%")
+}
+
+result, err := paginator.Paginate[{{.EntityName}}](session, &pageReq)
+if err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, result)
 }
 `
 
 const simpleRegisterTemplate = `package {{.Package}}
 
 import (
-        "context"
-        "fmt"
+"context"
+"fmt"
 
-        "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/feature"
+"github.com/Jayleonc/service/internal/feature"
+"github.com/Jayleonc/service/pkg/database"
 )
 
-func Register(ctx context.Context, deps feature.Dependencies) error {
-        // 校验当前模块所需的依赖是否已经注入。
-        if err := deps.Require("Router"); err != nil {
-                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
-        }
+func Register(ctx context.Context, deps *feature.Dependencies) error {
+if err := deps.Require("DB", "Router"); err != nil {
+return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
+}
 
-        // 确保认证服务可用，以复用统一的身份能力。
-        if auth.DefaultService() == nil {
-                return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
-        }
+db := database.Default()
+if db == nil {
+return fmt.Errorf("{{.Name}} feature requires a configured database connection")
+}
 
-        // 构建处理器并注册模块路由。
-        handler := NewHandler()
-        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
-        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
+if err := db.WithContext(ctx).AutoMigrate(&{{.EntityName}}{}); err != nil {
+return fmt.Errorf("migrate {{.Name}} tables: %w", err)
+}
 
-        // 记录模块初始化日志，便于排查问题。
-        if deps.Logger != nil {
-                deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "singleton")
-        }
+handler := NewHandler()
+deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
-        return nil
+if deps.Logger != nil {
+deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "simple-crud")
+}
+
+return nil
 }
 `
 
 const structuredRepositoryTemplate = `package {{.Package}}
 
 import (
-        "github.com/google/uuid"
-        "gorm.io/gorm"
+"context"
 
-        "github.com/Jayleonc/service/pkg/model"
+"github.com/google/uuid"
+"gorm.io/gorm"
+
+"github.com/Jayleonc/service/pkg/ginx/paginator"
+"github.com/Jayleonc/service/pkg/ginx/request"
+"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
-type {{.EntityName}} struct {
-        ID uuid.UUID ` + "`gorm:\"type:uuid;primaryKey\"`" + `
-        model.Base
-}
-
 type Repository struct {
-        db *gorm.DB
+db *gorm.DB
 }
 
 func NewRepository(db *gorm.DB) *Repository {
-        return &Repository{db: db}
+return &Repository{db: db}
+}
+
+// ListOptions 描述分页查询可用的过滤条件。
+type ListOptions struct {
+Pagination request.Pagination
+Name       string
+}
+
+func (r *Repository) Migrate(ctx context.Context) error {
+if r.db == nil {
+return gorm.ErrInvalidDB
+}
+return r.db.WithContext(ctx).AutoMigrate(&{{.EntityName}}{})
+}
+
+func (r *Repository) Create(ctx context.Context, entity *{{.EntityName}}) error {
+return r.db.WithContext(ctx).Create(entity).Error
+}
+
+func (r *Repository) Update(ctx context.Context, entity *{{.EntityName}}) error {
+return r.db.WithContext(ctx).Save(entity).Error
+}
+
+func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
+return r.db.WithContext(ctx).Delete(&{{.EntityName}}{}, "id = ?", id).Error
+}
+
+func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*{{.EntityName}}, error) {
+var entity {{.EntityName}}
+if err := r.db.WithContext(ctx).First(&entity, "id = ?", id).Error; err != nil {
+return nil, err
+}
+return &entity, nil
+}
+
+func (r *Repository) List(ctx context.Context, opts ListOptions) (*response.PageResult[{{.EntityName}}], error) {
+query := r.db.WithContext(ctx).Model(&{{.EntityName}}{})
+if opts.Name != "" {
+query = query.Where("name LIKE ?", "%"+opts.Name+"%")
+}
+
+pagination := opts.Pagination
+return paginator.Paginate[{{.EntityName}}](query, &pagination)
 }
 `
 
 const structuredServiceTemplate = `package {{.Package}}
 
 import (
-        "context"
-        "fmt"
+"context"
+"fmt"
+
+"github.com/google/uuid"
+
+"github.com/Jayleonc/service/pkg/ginx/request"
+"github.com/Jayleonc/service/pkg/ginx/response"
 )
 
 type Service struct {
-        repo *Repository
+repo *Repository
 }
 
 func NewService(repo *Repository) *Service {
-        return &Service{repo: repo}
+return &Service{repo: repo}
 }
 
-func (s *Service) Ping(ctx context.Context) error {
-        if ctx == nil {
-                return fmt.Errorf("context is required")
-        }
-        if s.repo == nil {
-                return fmt.Errorf("repository not configured")
-        }
-        return nil
+// CreateParams 定义创建 {{.DisplayName}} 所需的业务参数。
+type CreateParams struct {
+Name        string
+Description string
+}
+
+// UpdateParams 定义更新 {{.DisplayName}} 所需的业务参数。
+type UpdateParams struct {
+ID          uuid.UUID
+Name        *string
+Description *string
+}
+
+// ListParams 描述查询 {{.DisplayName}} 列表时可用的选项。
+type ListParams struct {
+Pagination request.Pagination
+Name       string
+}
+
+func (s *Service) Create(ctx context.Context, params CreateParams) (*{{.EntityName}}, error) {
+if s.repo == nil {
+return nil, fmt.Errorf("repository is not configured")
+}
+
+entity := &{{.EntityName}}{
+ID:          uuid.New(),
+Name:        params.Name,
+Description: params.Description,
+}
+
+if err := s.repo.Create(ctx, entity); err != nil {
+return nil, err
+}
+
+return entity, nil
+}
+
+func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*{{.EntityName}}, error) {
+if s.repo == nil {
+return nil, fmt.Errorf("repository is not configured")
+}
+
+return s.repo.FindByID(ctx, id)
+}
+
+func (s *Service) Update(ctx context.Context, params UpdateParams) (*{{.EntityName}}, error) {
+if s.repo == nil {
+return nil, fmt.Errorf("repository is not configured")
+}
+
+record, err := s.repo.FindByID(ctx, params.ID)
+if err != nil {
+return nil, err
+}
+
+if params.Name != nil {
+record.Name = *params.Name
+}
+if params.Description != nil {
+record.Description = *params.Description
+}
+
+if err := s.repo.Update(ctx, record); err != nil {
+return nil, err
+}
+
+return record, nil
+}
+
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
+if s.repo == nil {
+return fmt.Errorf("repository is not configured")
+}
+
+return s.repo.Delete(ctx, id)
+}
+
+func (s *Service) List(ctx context.Context, params ListParams) (*response.PageResult[{{.EntityName}}], error) {
+if s.repo == nil {
+return nil, fmt.Errorf("repository is not configured")
+}
+
+return s.repo.List(ctx, ListOptions{
+Pagination: params.Pagination,
+Name:       params.Name,
+})
 }
 `
 
 const structuredHandlerTemplate = `package {{.Package}}
 
 import (
-        "net/http"
+"errors"
+"net/http"
 
-        "github.com/gin-gonic/gin"
+"github.com/gin-gonic/gin"
+"github.com/google/uuid"
+"gorm.io/gorm"
 
-        "github.com/Jayleonc/service/internal/feature"
-        "github.com/Jayleonc/service/pkg/ginx/response"
-        "github.com/Jayleonc/service/pkg/xerr"
+"github.com/Jayleonc/service/internal/feature"
+"github.com/Jayleonc/service/pkg/ginx/request"
+"github.com/Jayleonc/service/pkg/ginx/response"
+"github.com/Jayleonc/service/pkg/xerr"
 )
 
 var (
-        errServiceNotConfigured = xerr.New(1, "service not configured")
-        errProcessInvalidBody   = xerr.New(2, "invalid request payload")
-        errProcessFailed        = xerr.New(3, "failed to process request")
+errInvalidPayload    = xerr.New(1, "invalid request payload")
+errInvalidQuery      = xerr.New(2, "invalid query parameters")
+errInvalidIdentifier = xerr.New(3, "invalid resource identifier")
+errRecordNotFound    = xerr.New(4, "{{.EntityVar}} not found")
 )
 
 type Handler struct {
-        service *Service
+service *Service
 }
 
 func NewHandler(service *Service) *Handler {
-        return &Handler{service: service}
+return &Handler{service: service}
+}
+
+// CreateInput 定义创建 {{.DisplayName}} 的请求结构。
+type CreateInput struct {
+Name        string ` + "`json:\"name\" binding:\"required\"`" + `
+Description string ` + "`json:\"description\"`" + `
+}
+
+// UpdateInput 定义更新 {{.DisplayName}} 的请求结构。
+type UpdateInput struct {
+Name        *string ` + "`json:\"name\" binding:\"omitempty\"`" + `
+Description *string ` + "`json:\"description\" binding:\"omitempty\"`" + `
+}
+
+// ListQuery 描述查询参数。
+type ListQuery struct {
+Page     int    ` + "`form:\"page\"`" + `
+PageSize int    ` + "`form:\"pageSize\"`" + `
+OrderBy  string ` + "`form:\"orderBy\"`" + `
+Name     string ` + "`form:\"name\"`" + `
 }
 
 // GetRoutes 在这里定义模块的相对路由，无需包含模块名。
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
-        return feature.ModuleRoutes{
-                PublicRoutes: []feature.RouteDefinition{
-                        {{if .EnableRBAC}}
-                        {Path: "ping", Handler: h.ping, RequiredPermission: "{{.PermissionPrefix}}ping"},
-                        {{else}}
-                        {Path: "ping", Handler: h.ping},
-                        {{end}}
-                },
-                AuthenticatedRoutes: []feature.RouteDefinition{
-                        {{if .EnableRBAC}}
-                        {Path: "process", Handler: h.process, RequiredPermission: "{{.PermissionPrefix}}process"},
-                        {{else}}
-                        {Path: "process", Handler: h.process},
-                        {{end}}
-                },
-        }
+return feature.ModuleRoutes{
+AuthenticatedRoutes: []feature.RouteDefinition{
+{{if .EnableRBAC}}
+{Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
+{Path: ":id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
+{Path: ":id/update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
+{Path: ":id/delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
+{Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+{{else}}
+{Path: "create", Handler: h.create},
+{Path: ":id", Handler: h.getByID},
+{Path: ":id/update", Handler: h.update},
+{Path: ":id/delete", Handler: h.delete},
+{Path: "list", Handler: h.list},
+{{end}}
+},
+}
 }
 
-func (h *Handler) ping(c *gin.Context) {
-        response.Success(c, gin.H{"status": "ok"})
+func (h *Handler) create(c *gin.Context) {
+var input CreateInput
+if err := c.ShouldBindJSON(&input); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidPayload)
+return
 }
 
-func (h *Handler) process(c *gin.Context) {
-        if h.service == nil {
-                response.Error(c, http.StatusInternalServerError, errServiceNotConfigured)
-                return
-        }
+entity, err := h.service.Create(c.Request.Context(), CreateParams{
+Name:        input.Name,
+Description: input.Description,
+})
+if err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
 
-        var req struct {
-                Message string ` + "`json:\"message\" binding:\"required\"`" + `
-        }
-        if err := c.ShouldBindJSON(&req); err != nil {
-                response.Error(c, http.StatusBadRequest, errProcessInvalidBody)
-                return
-        }
+response.SuccessWithStatus(c, http.StatusCreated, entity)
+}
 
-        if err := h.service.Ping(c.Request.Context()); err != nil {
-                response.Error(c, http.StatusInternalServerError, errProcessFailed)
-                return
-        }
+func (h *Handler) getByID(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
 
-        response.Success(c, gin.H{"message": req.Message})
+record, err := h.service.GetByID(c.Request.Context(), id)
+if err != nil {
+if errors.Is(err, gorm.ErrRecordNotFound) {
+response.Error(c, http.StatusNotFound, errRecordNotFound)
+return
+}
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, record)
+}
+
+func (h *Handler) update(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
+
+var input UpdateInput
+if err := c.ShouldBindJSON(&input); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidPayload)
+return
+}
+
+record, err := h.service.Update(c.Request.Context(), UpdateParams{
+ID:          id,
+Name:        input.Name,
+Description: input.Description,
+})
+if err != nil {
+if errors.Is(err, gorm.ErrRecordNotFound) {
+response.Error(c, http.StatusNotFound, errRecordNotFound)
+return
+}
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, record)
+}
+
+func (h *Handler) delete(c *gin.Context) {
+idParam := c.Param("id")
+id, err := uuid.Parse(idParam)
+if err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+return
+}
+
+if err := h.service.Delete(c.Request.Context(), id); err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, gin.H{"id": id})
+}
+
+func (h *Handler) list(c *gin.Context) {
+var query ListQuery
+if err := c.ShouldBindQuery(&query); err != nil {
+response.Error(c, http.StatusBadRequest, errInvalidQuery)
+return
+}
+
+result, err := h.service.List(c.Request.Context(), ListParams{
+Pagination: request.Pagination{
+Page:     query.Page,
+PageSize: query.PageSize,
+OrderBy:  query.OrderBy,
+},
+Name: query.Name,
+})
+if err != nil {
+response.Error(c, http.StatusInternalServerError, err)
+return
+}
+
+response.Success(c, result)
 }
 `
 
 const structuredRegisterTemplate = `package {{.Package}}
 
 import (
-        "context"
-        "fmt"
+"context"
+"fmt"
 
-        "github.com/Jayleonc/service/internal/auth"
-        "github.com/Jayleonc/service/internal/feature"
+"github.com/Jayleonc/service/internal/feature"
 )
 
-func Register(ctx context.Context, deps feature.Dependencies) error {
-        // 校验当前模块所需的依赖是否已经注入。
-        if err := deps.Require("DB", "Router"); err != nil {
-                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
-        }
+func Register(ctx context.Context, deps *feature.Dependencies) error {
+if err := deps.Require("DB", "Router"); err != nil {
+return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
+}
 
-        // 确保认证服务可用，以复用统一的身份能力。
-        if auth.DefaultService() == nil {
-                return fmt.Errorf("{{.Name}} feature requires the auth service to be initialised")
-        }
+repo := NewRepository(deps.DB)
+if err := repo.Migrate(ctx); err != nil {
+return fmt.Errorf("migrate {{.Name}} tables: %w", err)
+}
 
-        // 构建存储和服务层，准备路由处理器。
-        repo := NewRepository(deps.DB)
-        svc := NewService(repo)
-        handler := NewHandler(svc)
-        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
-        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
+service := NewService(repo)
+handler := NewHandler(service)
 
-        // 记录模块初始化日志，便于排查问题。
-        if deps.Logger != nil {
-                deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured")
-        }
+deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
-        return nil
+if deps.Logger != nil {
+deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured-crud")
+}
+
+return nil
 }
 `
