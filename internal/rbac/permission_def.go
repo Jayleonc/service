@@ -11,6 +11,7 @@ const (
 // Action 定义系统内可授权的操作标识。
 const (
 	ActionCreate            = "create"
+	ActionRead              = "read"
 	ActionUpdate            = "update"
 	ActionDelete            = "delete"
 	ActionList              = "list"
