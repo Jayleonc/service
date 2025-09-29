@@ -64,7 +64,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        const data = await api.post('/v1/users/login', {email, password})
+        const data = await api.post('/v1/user/login', {email, password})
         this.setSession({
           access_token: data.access_token,
           refresh_token: data.refresh_token,
@@ -84,7 +84,7 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        await api.post('/v1/users/register', {name, email, password, phone})
+        await api.post('/v1/user/register', {name, email, password, phone})
         await router.push('/login')
       } catch (e) {
         this.error = e.message || '注册失败'
@@ -94,13 +94,13 @@ export const useAuthStore = defineStore('auth', {
       }
     },
     async fetchMe() {
-      const data = await api.post('/v1/users/me/get', {})
+      const data = await api.post('/v1/user/me/get', {})
       this.user = data
       this.persist()
       return data
     },
     async updateMe(payload) {
-      const data = await api.post('/v1/users/me/update', payload)
+      const data = await api.post('/v1/user/me/update', payload)
       this.user = data
       this.persist()
       return data
