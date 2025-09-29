@@ -17,7 +17,7 @@ type Permission struct {
 
 // TableName overrides the default gorm table name.
 func (Permission) TableName() string {
-	return "permissions"
+	return "permission"
 }
 
 // Role groups permissions and can be attached to a user.
@@ -31,5 +31,5 @@ type Role struct {
 
 // TableName overrides the default gorm table name.
 func (Role) TableName() string {
-	return "roles"
+	return "role"
 }

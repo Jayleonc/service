@@ -3,7 +3,6 @@ package app
 import (
 	"github.com/Jayleonc/service/internal/auth"
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/internal/server"
 	"github.com/Jayleonc/service/internal/user"
 )

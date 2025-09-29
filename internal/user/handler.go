@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
