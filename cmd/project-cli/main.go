@@ -605,10 +605,9 @@ import (
 
 // {{.EntityName}} 定义了 {{.DisplayName}} 实体的数据库结构。
 type {{.EntityName}} struct {
-ID          uuid.UUID ` + "`gorm:\"type:uuid;primaryKey\"`" + `
-Name        string    ` + "`gorm:\"size:255\" json:\"name\"`" + `
-Description string    ` + "`gorm:\"size:512\" json:\"description\"`" + `
-model.Base
+        ID          uuid.UUID ` + "`gorm:\"type:uuid;primaryKey\"`" + `
+        Name        string    ` + "`gorm:\"size:255\" json:\"name\"`" + `
+        model.Base
 }
 
 // TableName overrides the default gorm table name.
@@ -620,8 +619,9 @@ return "{{.Name}}"
 const simpleHandlerTemplate = `package {{.Package}}
 
 import (
-"errors"
-"net/http"
+        "errors"
+        "io"
+        "net/http"
 
 "github.com/gin-gonic/gin"
 "github.com/google/uuid"
@@ -636,31 +636,39 @@ import (
 )
 
 var (
-errInvalidPayload     = xerr.New(1, "invalid request payload")
-errInvalidQuery       = xerr.New(2, "invalid query parameters")
-errRecordNotFound     = xerr.New(3, "{{.EntityVar}} not found")
-errInvalidIdentifier  = xerr.New(4, "invalid resource identifier")
-errDatabaseNotReady   = xerr.New(5, "database is not initialised")
+        errInvalidPayload     = xerr.New(1, "invalid request payload")
+        errRecordNotFound     = xerr.New(2, "{{.EntityVar}} not found")
+        errInvalidIdentifier  = xerr.New(3, "invalid resource identifier")
+        errDatabaseNotReady   = xerr.New(4, "database is not initialised")
 )
 
 // CreateInput 定义创建 {{.DisplayName}} 的请求体。
 type CreateInput struct {
-Name        string ` + "`json:\"name\" binding:\"required\"`" + `
-Description string ` + "`json:\"description\"`" + `
+        Name string ` + "`json:\"name\" binding:\"required\"`" + `
+}
+
+// GetByIDInput 定义根据 ID 查询 {{.DisplayName}} 的请求体。
+type GetByIDInput struct {
+        ID string ` + "`json:\"id\" binding:\"required\"`" + `
 }
 
 // UpdateInput 定义更新 {{.DisplayName}} 的请求体。
 type UpdateInput struct {
-Name        *string ` + "`json:\"name\" binding:\"omitempty\"`" + `
-Description *string ` + "`json:\"description\" binding:\"omitempty\"`" + `
+        ID   string ` + "`json:\"id\" binding:\"required\"`" + `
+        Name string ` + "`json:\"name\" binding:\"required\"`" + `
+}
+
+// DeleteInput 定义删除 {{.DisplayName}} 的请求体。
+type DeleteInput struct {
+        ID string ` + "`json:\"id\" binding:\"required\"`" + `
 }
 
 // ListQuery 描述列表查询可用的分页和过滤参数。
 type ListQuery struct {
-Page     int    ` + "`form:\"page\"`" + `
-PageSize int    ` + "`form:\"pageSize\"`" + `
-OrderBy  string ` + "`form:\"orderBy\"`" + `
-Name     string ` + "`form:\"name\"`" + `
+        Page     int    ` + "`json:\"page\"`" + `
+        PageSize int    ` + "`json:\"pageSize\"`" + `
+        OrderBy  string ` + "`json:\"orderBy\"`" + `
+        Name     string ` + "`json:\"name\"`" + `
 }
 
 type Handler struct{}
@@ -674,17 +682,17 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{if .EnableRBAC}}
-{Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
-{Path: ":id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
-{Path: ":id/update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
-{Path: ":id/delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
-{Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+                {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
+                {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
+                {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
+                {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
 {{else}}
-{Path: "create", Handler: h.create},
-{Path: ":id", Handler: h.getByID},
-{Path: ":id/update", Handler: h.update},
-{Path: ":id/delete", Handler: h.delete},
-{Path: "list", Handler: h.list},
+                {Path: "create", Handler: h.create},
+                {Path: "get_by_id", Handler: h.getByID},
+                {Path: "update", Handler: h.update},
+                {Path: "delete", Handler: h.delete},
+                {Path: "list", Handler: h.list},
 {{end}}
 },
 }
@@ -703,11 +711,10 @@ response.Error(c, http.StatusInternalServerError, errDatabaseNotReady)
 return
 }
 
-record := &{{.EntityName}}{
-ID:          uuid.New(),
-Name:        input.Name,
-Description: input.Description,
-}
+        record := &{{.EntityName}}{
+                ID:   uuid.New(),
+                Name: input.Name,
+        }
 
 if err := db.WithContext(c.Request.Context()).Create(record).Error; err != nil {
 response.Error(c, http.StatusInternalServerError, err)
@@ -718,12 +725,17 @@ response.SuccessWithStatus(c, http.StatusCreated, record)
 }
 
 func (h *Handler) getByID(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input GetByIDInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
+
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
 
 db := database.Default()
 if db == nil {
@@ -745,18 +757,17 @@ response.Success(c, record)
 }
 
 func (h *Handler) update(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input UpdateInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
 
-var input UpdateInput
-if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidPayload)
-return
-}
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
 
 db := database.Default()
 if db == nil {
@@ -766,21 +777,16 @@ return
 
 ctx := c.Request.Context()
 var record {{.EntityName}}
-if err := db.WithContext(ctx).First(&record, "id = ?", id).Error; err != nil {
-if errors.Is(err, gorm.ErrRecordNotFound) {
-response.Error(c, http.StatusNotFound, errRecordNotFound)
-return
-}
-response.Error(c, http.StatusInternalServerError, err)
-return
-}
+        if err := db.WithContext(ctx).First(&record, "id = ?", id).Error; err != nil {
+                if errors.Is(err, gorm.ErrRecordNotFound) {
+                        response.Error(c, http.StatusNotFound, errRecordNotFound)
+                        return
+                }
+                response.Error(c, http.StatusInternalServerError, err)
+                return
+        }
 
-if input.Name != nil {
-record.Name = *input.Name
-}
-if input.Description != nil {
-record.Description = *input.Description
-}
+        record.Name = input.Name
 
 if err := db.WithContext(ctx).Save(&record).Error; err != nil {
 response.Error(c, http.StatusInternalServerError, err)
@@ -791,12 +797,17 @@ response.Success(c, record)
 }
 
 func (h *Handler) delete(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input DeleteInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
+
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
 
 db := database.Default()
 if db == nil {
@@ -813,11 +824,13 @@ response.Success(c, gin.H{"id": id})
 }
 
 func (h *Handler) list(c *gin.Context) {
-var query ListQuery
-if err := c.ShouldBindQuery(&query); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidQuery)
-return
-}
+        var query ListQuery
+        if err := c.ShouldBindJSON(&query); err != nil {
+                if !errors.Is(err, io.EOF) {
+                        response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                        return
+                }
+        }
 
 db := database.Default()
 if db == nil {
@@ -826,9 +839,9 @@ return
 }
 
 pageReq := request.Pagination{
-Page:     query.Page,
-PageSize: query.PageSize,
-OrderBy:  query.OrderBy,
+                Page:     query.Page,
+                PageSize: query.PageSize,
+                OrderBy:  query.OrderBy,
 }
 
 session := db.WithContext(c.Request.Context()).Model(&{{.EntityName}}{})
@@ -857,27 +870,34 @@ import (
 )
 
 func Register(ctx context.Context, deps *feature.Dependencies) error {
-if err := deps.Require("DB", "Router"); err != nil {
-return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
-}
+        // 校验当前模块所需的依赖是否已经注入。
+        if err := deps.Require("DB", "Router"); err != nil {
+                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
+        }
 
-db := database.Default()
-if db == nil {
-return fmt.Errorf("{{.Name}} feature requires a configured database connection")
-}
+        // 读取默认数据库连接，保证基础 CRUD 能正确操作数据。
+        db := database.Default()
+        if db == nil {
+                return fmt.Errorf("{{.Name}} feature requires a configured database connection")
+        }
 
-if err := db.WithContext(ctx).AutoMigrate(&{{.EntityName}}{}); err != nil {
-return fmt.Errorf("migrate {{.Name}} tables: %w", err)
-}
+        // 自动迁移当前模块所需的数据表结构。
+        if err := db.WithContext(ctx).AutoMigrate(&{{.EntityName}}{}); err != nil {
+                return fmt.Errorf("migrate {{.Name}} tables: %w", err)
+        }
 
-handler := NewHandler()
-deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
+        // 构建处理器并注册模块路由。
+        handler := NewHandler()
+        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
+        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
-if deps.Logger != nil {
-deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "simple-crud")
-}
+        // 记录模块初始化日志，便于排查问题。
+        if deps.Logger != nil {
+                deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "simple-crud")
+        }
 
-return nil
+        // 返回 nil 表示初始化成功。
+        return nil
 }
 `
 
@@ -968,15 +988,13 @@ return &Service{repo: repo}
 
 // CreateParams 定义创建 {{.DisplayName}} 所需的业务参数。
 type CreateParams struct {
-Name        string
-Description string
+Name string
 }
 
 // UpdateParams 定义更新 {{.DisplayName}} 所需的业务参数。
 type UpdateParams struct {
-ID          uuid.UUID
-Name        *string
-Description *string
+ID   uuid.UUID
+Name string
 }
 
 // ListParams 描述查询 {{.DisplayName}} 列表时可用的选项。
@@ -991,9 +1009,8 @@ return nil, fmt.Errorf("repository is not configured")
 }
 
 entity := &{{.EntityName}}{
-ID:          uuid.New(),
-Name:        params.Name,
-Description: params.Description,
+ID:   uuid.New(),
+Name: params.Name,
 }
 
 if err := s.repo.Create(ctx, entity); err != nil {
@@ -1021,12 +1038,7 @@ if err != nil {
 return nil, err
 }
 
-if params.Name != nil {
-record.Name = *params.Name
-}
-if params.Description != nil {
-record.Description = *params.Description
-}
+record.Name = params.Name
 
 if err := s.repo.Update(ctx, record); err != nil {
 return nil, err
@@ -1058,8 +1070,9 @@ Name:       params.Name,
 const structuredHandlerTemplate = `package {{.Package}}
 
 import (
-"errors"
-"net/http"
+        "errors"
+        "io"
+        "net/http"
 
 "github.com/gin-gonic/gin"
 "github.com/google/uuid"
@@ -1072,10 +1085,9 @@ import (
 )
 
 var (
-errInvalidPayload    = xerr.New(1, "invalid request payload")
-errInvalidQuery      = xerr.New(2, "invalid query parameters")
-errInvalidIdentifier = xerr.New(3, "invalid resource identifier")
-errRecordNotFound    = xerr.New(4, "{{.EntityVar}} not found")
+        errInvalidPayload    = xerr.New(1, "invalid request payload")
+        errInvalidIdentifier = xerr.New(2, "invalid resource identifier")
+        errRecordNotFound    = xerr.New(3, "{{.EntityVar}} not found")
 )
 
 type Handler struct {
@@ -1088,22 +1100,31 @@ return &Handler{service: service}
 
 // CreateInput 定义创建 {{.DisplayName}} 的请求结构。
 type CreateInput struct {
-Name        string ` + "`json:\"name\" binding:\"required\"`" + `
-Description string ` + "`json:\"description\"`" + `
+        Name string ` + "`json:\"name\" binding:\"required\"`" + `
+}
+
+// GetByIDInput 定义根据 ID 查询 {{.DisplayName}} 的请求结构。
+type GetByIDInput struct {
+        ID string ` + "`json:\"id\" binding:\"required\"`" + `
 }
 
 // UpdateInput 定义更新 {{.DisplayName}} 的请求结构。
 type UpdateInput struct {
-Name        *string ` + "`json:\"name\" binding:\"omitempty\"`" + `
-Description *string ` + "`json:\"description\" binding:\"omitempty\"`" + `
+        ID   string ` + "`json:\"id\" binding:\"required\"`" + `
+        Name string ` + "`json:\"name\" binding:\"required\"`" + `
+}
+
+// DeleteInput 定义删除 {{.DisplayName}} 的请求结构。
+type DeleteInput struct {
+        ID string ` + "`json:\"id\" binding:\"required\"`" + `
 }
 
 // ListQuery 描述查询参数。
 type ListQuery struct {
-Page     int    ` + "`form:\"page\"`" + `
-PageSize int    ` + "`form:\"pageSize\"`" + `
-OrderBy  string ` + "`form:\"orderBy\"`" + `
-Name     string ` + "`form:\"name\"`" + `
+        Page     int    ` + "`json:\"page\"`" + `
+        PageSize int    ` + "`json:\"pageSize\"`" + `
+        OrderBy  string ` + "`json:\"orderBy\"`" + `
+        Name     string ` + "`json:\"name\"`" + `
 }
 
 // GetRoutes 在这里定义模块的相对路由，无需包含模块名。
@@ -1111,17 +1132,17 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{if .EnableRBAC}}
-{Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
-{Path: ":id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
-{Path: ":id/update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
-{Path: ":id/delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
-{Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+                {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
+                {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
+                {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
+                {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
 {{else}}
-{Path: "create", Handler: h.create},
-{Path: ":id", Handler: h.getByID},
-{Path: ":id/update", Handler: h.update},
-{Path: ":id/delete", Handler: h.delete},
-{Path: "list", Handler: h.list},
+                {Path: "create", Handler: h.create},
+                {Path: "get_by_id", Handler: h.getByID},
+                {Path: "update", Handler: h.update},
+                {Path: "delete", Handler: h.delete},
+                {Path: "list", Handler: h.list},
 {{end}}
 },
 }
@@ -1134,10 +1155,9 @@ response.Error(c, http.StatusBadRequest, errInvalidPayload)
 return
 }
 
-entity, err := h.service.Create(c.Request.Context(), CreateParams{
-Name:        input.Name,
-Description: input.Description,
-})
+        entity, err := h.service.Create(c.Request.Context(), CreateParams{
+                Name: input.Name,
+        })
 if err != nil {
 response.Error(c, http.StatusInternalServerError, err)
 return
@@ -1147,12 +1167,17 @@ response.SuccessWithStatus(c, http.StatusCreated, entity)
 }
 
 func (h *Handler) getByID(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input GetByIDInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
+
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
 
 record, err := h.service.GetByID(c.Request.Context(), id)
 if err != nil {
@@ -1168,24 +1193,22 @@ response.Success(c, record)
 }
 
 func (h *Handler) update(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input UpdateInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
 
-var input UpdateInput
-if err := c.ShouldBindJSON(&input); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidPayload)
-return
-}
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
 
-record, err := h.service.Update(c.Request.Context(), UpdateParams{
-ID:          id,
-Name:        input.Name,
-Description: input.Description,
-})
+        record, err := h.service.Update(c.Request.Context(), UpdateParams{
+                ID:   id,
+                Name: input.Name,
+        })
 if err != nil {
 if errors.Is(err, gorm.ErrRecordNotFound) {
 response.Error(c, http.StatusNotFound, errRecordNotFound)
@@ -1199,27 +1222,34 @@ response.Success(c, record)
 }
 
 func (h *Handler) delete(c *gin.Context) {
-idParam := c.Param("id")
-id, err := uuid.Parse(idParam)
-if err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
-return
-}
+        var input DeleteInput
+        if err := c.ShouldBindJSON(&input); err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                return
+        }
 
-if err := h.service.Delete(c.Request.Context(), id); err != nil {
-response.Error(c, http.StatusInternalServerError, err)
-return
-}
+        id, err := uuid.Parse(input.ID)
+        if err != nil {
+                response.Error(c, http.StatusBadRequest, errInvalidIdentifier)
+                return
+        }
+
+        if err := h.service.Delete(c.Request.Context(), id); err != nil {
+                response.Error(c, http.StatusInternalServerError, err)
+                return
+        }
 
 response.Success(c, gin.H{"id": id})
 }
 
 func (h *Handler) list(c *gin.Context) {
-var query ListQuery
-if err := c.ShouldBindQuery(&query); err != nil {
-response.Error(c, http.StatusBadRequest, errInvalidQuery)
-return
-}
+        var query ListQuery
+        if err := c.ShouldBindJSON(&query); err != nil {
+                if !errors.Is(err, io.EOF) {
+                        response.Error(c, http.StatusBadRequest, errInvalidPayload)
+                        return
+                }
+        }
 
 result, err := h.service.List(c.Request.Context(), ListParams{
 Pagination: request.Pagination{
@@ -1248,24 +1278,31 @@ import (
 )
 
 func Register(ctx context.Context, deps *feature.Dependencies) error {
-if err := deps.Require("DB", "Router"); err != nil {
-return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
-}
+        // 校验当前模块所需的依赖是否已经注入。
+        if err := deps.Require("DB", "Router"); err != nil {
+                return fmt.Errorf("{{.Name}} feature dependencies: %w", err)
+        }
 
-repo := NewRepository(deps.DB)
-if err := repo.Migrate(ctx); err != nil {
-return fmt.Errorf("migrate {{.Name}} tables: %w", err)
-}
+        // 构建仓储层，承载数据库读写。
+        repo := NewRepository(deps.DB)
+        // 自动迁移当前模块所需的数据表结构。
+        if err := repo.Migrate(ctx); err != nil {
+                return fmt.Errorf("migrate {{.Name}} tables: %w", err)
+        }
 
-service := NewService(repo)
-handler := NewHandler(service)
+        // 初始化业务服务并装配 HTTP 处理器。
+        service := NewService(repo)
+        handler := NewHandler(service)
 
-deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
+        // 模块的路由将统一挂载到 /v1/{{ .FeatureName }} 路径下。
+        deps.Router.RegisterModule("{{ .FeatureName }}", handler.GetRoutes())
 
-if deps.Logger != nil {
-deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured-crud")
-}
+        // 记录模块初始化日志，便于排查问题。
+        if deps.Logger != nil {
+                deps.Logger.InfoContext(ctx, "{{.LogMessage}}", "pattern", "structured-crud")
+        }
 
-return nil
+        // 返回 nil 表示初始化成功。
+        return nil
 }
 `
