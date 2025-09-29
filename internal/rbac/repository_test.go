@@ -17,7 +17,7 @@ type userRole struct {
 }
 
 func (userRole) TableName() string {
-	return "user_roles"
+	return "user_role"
 }
 
 // setupTestDB 创建独立的内存数据库并初始化基础结构。

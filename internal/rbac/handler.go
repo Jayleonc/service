@@ -75,9 +75,9 @@ func (h *Handler) createRole(c *gin.Context) {
 
 func (h *Handler) updateRole(c *gin.Context) {
 	var req struct {
-		ID          string  `json:"id" binding:"required"`
-		Name        *string `json:"name"`
-		Description *string `json:"description"`
+		ID          string `json:"id" binding:"required"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)
@@ -214,10 +214,10 @@ func (h *Handler) createPermission(c *gin.Context) {
 
 func (h *Handler) updatePermission(c *gin.Context) {
 	var req struct {
-		ID          string  `json:"id" binding:"required"`
-		Resource    *string `json:"resource"`
-		Action      *string `json:"action"`
-		Description *string `json:"description"`
+		ID          string `json:"id" binding:"required"`
+		Resource    string `json:"resource"`
+		Action      string `json:"action"`
+		Description string `json:"description"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, ErrInvalidPayload)

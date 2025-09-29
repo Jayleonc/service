@@ -139,9 +139,9 @@ func (h *Handler) create(c *gin.Context) {
 
 func (h *Handler) update(c *gin.Context) {
 	var payload struct {
-		ID    string  `json:"id" binding:"required"`
-		Name  *string `json:"name"`
-		Phone *string `json:"phone"`
+		ID    string `json:"id" binding:"required"`
+		Name  string `json:"name"`
+		Phone string `json:"phone"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		response.Error(c, http.StatusBadRequest, ErrUpdateInvalidPayload)

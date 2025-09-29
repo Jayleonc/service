@@ -14,7 +14,7 @@ type User struct {
 	Email        string       `gorm:"size:255;uniqueIndex"`
 	PasswordHash string       `gorm:"column:password_hash"`
 	Phone        string       `gorm:"size:64"`
-	Roles        []*rbac.Role `gorm:"many2many:user_roles;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Roles        []*rbac.Role `gorm:"many2many:user_role;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	model.Base
 }
 

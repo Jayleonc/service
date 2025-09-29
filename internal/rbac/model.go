@@ -25,7 +25,7 @@ type Role struct {
 	ID          uuid.UUID     `gorm:"type:uuid;primaryKey"`
 	Name        string        `gorm:"size:255;uniqueIndex"`
 	Description string        `gorm:"size:512"`
-	Permissions []*Permission `gorm:"many2many:role_permissions;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Permissions []*Permission `gorm:"many2many:role_permission;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	model.Base
 }
 

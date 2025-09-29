@@ -166,16 +166,16 @@ func (r *Repository) UserHasPermission(ctx context.Context, userID uuid.UUID, pe
 
 	var count int64
 	query := r.db.WithContext(ctx).
-		Table("permissions").
-		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
-		Joins("JOIN user_roles ur ON ur.role_id = rp.role_id").
+		Table("permission").
+		Joins("JOIN role_permission rp ON rp.permission_id = permission.id").
+		Joins("JOIN user_role ur ON ur.role_id = rp.role_id").
 		Where("ur.user_id = ?", userID)
 
 	if resource != "" {
-		query = query.Where("LOWER(permissions.resource) = ?", strings.ToLower(resource))
+		query = query.Where("LOWER(permission.resource) = ?", strings.ToLower(resource))
 	}
 	if action != "" {
-		query = query.Where("LOWER(permissions.action) = ?", strings.ToLower(action))
+		query = query.Where("LOWER(permission.action) = ?", strings.ToLower(action))
 	}
 
 	if err := query.Count(&count).Error; err != nil {

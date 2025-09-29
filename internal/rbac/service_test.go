@@ -178,8 +178,8 @@ func TestServiceUpdateRole(t *testing.T) {
 			name: "成功更新字段",
 			input: UpdateRoleInput{
 				ID:          uuid.New(),
-				Name:        &newName,
-				Description: &newDescription,
+				Name:        newName,
+				Description: newDescription,
 			},
 			prepare: func(m *mockRepository) {
 				existing := &Role{ID: uuid.New(), Name: "OLD", Description: "描述"}
@@ -191,7 +191,7 @@ func TestServiceUpdateRole(t *testing.T) {
 		},
 		{
 			name:  "空名称触发错误",
-			input: UpdateRoleInput{ID: uuid.New(), Name: func() *string { v := " "; return &v }()},
+			input: UpdateRoleInput{ID: uuid.New(), Name: func() string { v := " "; return v }()},
 			prepare: func(m *mockRepository) {
 				existing := &Role{ID: uuid.New(), Name: "OLD"}
 				m.On("FindRoleByID", mock.Anything, mock.Anything).Return(existing, nil)
@@ -384,9 +384,9 @@ func TestServiceUpdatePermission(t *testing.T) {
 			name: "成功更新所有字段",
 			input: UpdatePermissionInput{
 				ID:          uuid.New(),
-				Resource:    &newResource,
-				Action:      &newAction,
-				Description: &newDesc,
+				Resource:    newResource,
+				Action:      newAction,
+				Description: newDesc,
 			},
 			prepare: func(m *mockRepository) {
 				existing := &Permission{ID: uuid.New(), Resource: "system", Action: "view"}
@@ -398,7 +398,7 @@ func TestServiceUpdatePermission(t *testing.T) {
 		},
 		{
 			name:  "资源为空触发错误",
-			input: UpdatePermissionInput{ID: uuid.New(), Resource: func() *string { v := " "; return &v }()},
+			input: UpdatePermissionInput{ID: uuid.New(), Resource: func() string { v := " "; return v }()},
 			prepare: func(m *mockRepository) {
 				existing := &Permission{ID: uuid.New(), Resource: "system", Action: "view"}
 				m.On("FindPermissionByID", mock.Anything, mock.Anything).Return(existing, nil)

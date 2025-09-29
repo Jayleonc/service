@@ -9,7 +9,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Jayleonc/service/pkg/validation"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -84,6 +87,15 @@ func (m *mockService) ListPermissions(ctx context.Context) ([]Permission, error)
 func newTestRouter(svc ServiceContract) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+
+	// Use a StructValidator that supports both `binding` and `validate` tags.
+	binding.Validator = validation.NewDualTagValidator()
+	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		validation.SetDefault(engine)
+	} else {
+		validation.Init()
+	}
+
 	handler := &Handler{svc: svc}
 	router.POST("/v1/rbac/role/create", handler.createRole)
 	router.POST("/v1/rbac/role/update", handler.updateRole)
@@ -195,7 +207,7 @@ func TestHandlerUpdateRole(t *testing.T) {
 				"description": desc,
 			},
 			prepare: func(m *mockService) {
-				input := UpdateRoleInput{ID: roleID, Name: &name, Description: &desc}
+				input := UpdateRoleInput{ID: roleID, Name: name, Description: desc}
 				m.On("UpdateRole", mock.Anything, input).Return(&Role{ID: roleID, Name: "MANAGER"}, nil)
 			},
 			wantStatus: http.StatusOK,
@@ -487,7 +499,7 @@ func TestHandlerUpdatePermission(t *testing.T) {
 			name:    "更新成功",
 			payload: gin.H{"id": permissionID.String(), "resource": resource},
 			prepare: func(m *mockService) {
-				input := UpdatePermissionInput{ID: permissionID, Resource: &resource}
+				input := UpdatePermissionInput{ID: permissionID, Resource: resource}
 				m.On("UpdatePermission", mock.Anything, input).Return(&Permission{ID: permissionID}, nil)
 			},
 			wantStatus: http.StatusOK,

@@ -93,14 +93,14 @@ func EnsureService(ctx context.Context, repo *Repository) (*Service, error) {
 // CreateRoleInput defines the payload required to create a new role.
 type CreateRoleInput struct {
 	Name        string `json:"name" validate:"required"`
-	Description string `json:"description" validate:"omitempty"`
+	Description string `json:"description" binding:"omitempty"`
 }
 
 // UpdateRoleInput defines the payload required to update an existing role.
 type UpdateRoleInput struct {
 	ID          uuid.UUID `json:"id" validate:"required"`
-	Name        *string   `json:"name" validate:"omitempty"`
-	Description *string   `json:"description" validate:"omitempty"`
+	Name        string    `json:"name" validate:"omitempty"`
+	Description string    `json:"description" validate:"omitempty"`
 }
 
 // DeleteRoleInput defines the payload required to delete a role.
@@ -118,9 +118,9 @@ type CreatePermissionInput struct {
 // UpdatePermissionInput defines the payload for updating an existing permission.
 type UpdatePermissionInput struct {
 	ID          uuid.UUID `json:"id" validate:"required"`
-	Resource    *string   `json:"resource" validate:"omitempty"`
-	Action      *string   `json:"action" validate:"omitempty"`
-	Description *string   `json:"description" validate:"omitempty"`
+	Resource    string    `json:"resource" validate:"omitempty"`
+	Action      string    `json:"action" validate:"omitempty"`
+	Description string    `json:"description" validate:"omitempty"`
 }
 
 // DeletePermissionInput defines the payload for deleting a permission.
@@ -160,15 +160,15 @@ func (s *Service) UpdateRole(ctx context.Context, input UpdateRoleInput) (*Role,
 		return nil, err
 	}
 
-	if input.Name != nil {
-		normalized := NormalizeRoleName(*input.Name)
+	if input.Name != "" {
+		normalized := NormalizeRoleName(input.Name)
 		if normalized == "" {
 			return nil, fmt.Errorf("role name cannot be empty")
 		}
 		role.Name = normalized
 	}
-	if input.Description != nil {
-		role.Description = strings.TrimSpace(*input.Description)
+	if input.Description != "" {
+		role.Description = strings.TrimSpace(input.Description)
 	}
 
 	if err := s.repo.UpdateRole(ctx, role); err != nil {
@@ -215,22 +215,22 @@ func (s *Service) UpdatePermission(ctx context.Context, input UpdatePermissionIn
 		return nil, err
 	}
 
-	if input.Resource != nil {
-		resource := strings.ToLower(strings.TrimSpace(*input.Resource))
+	if input.Resource != "" {
+		resource := strings.ToLower(strings.TrimSpace(input.Resource))
 		if resource == "" {
 			return nil, fmt.Errorf("resource cannot be empty")
 		}
 		permission.Resource = resource
 	}
-	if input.Action != nil {
-		action := strings.ToLower(strings.TrimSpace(*input.Action))
+	if input.Action != "" {
+		action := strings.ToLower(strings.TrimSpace(input.Action))
 		if action == "" {
 			return nil, fmt.Errorf("action cannot be empty")
 		}
 		permission.Action = action
 	}
-	if input.Description != nil {
-		permission.Description = strings.TrimSpace(*input.Description)
+	if input.Description != "" {
+		permission.Description = strings.TrimSpace(input.Description)
 	}
 
 	if err := s.repo.UpdatePermission(ctx, permission); err != nil {

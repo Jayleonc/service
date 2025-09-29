@@ -41,8 +41,8 @@ type LoginInput struct {
 
 // UpdateProfileInput 定义用户自助更新资料的入参。
 type UpdateProfileInput struct {
-	Name  *string `json:"name" validate:"omitempty"`
-	Phone *string `json:"phone" validate:"omitempty"`
+	Name  string `json:"name" validate:"omitempty"`
+	Phone string `json:"phone" validate:"omitempty"`
 }
 
 // CreateUserRequest 管理员创建用户请求
@@ -57,8 +57,8 @@ type CreateUserRequest struct {
 // UpdateUserRequest 管理员更新用户信息
 type UpdateUserRequest struct {
 	ID    uuid.UUID `json:"id" validate:"required"`
-	Name  *string   `json:"name" validate:"omitempty"`
-	Phone *string   `json:"phone" validate:"omitempty"`
+	Name  string    `json:"name" validate:"omitempty"`
+	Phone string    `json:"phone" validate:"omitempty"`
 }
 
 // DeleteUserRequest 管理员删除用户
@@ -171,11 +171,11 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, input UpdateP
 		return Profile{}, err
 	}
 
-	if input.Name != nil {
-		record.Name = *input.Name
+	if input.Name != "" {
+		record.Name = input.Name
 	}
-	if input.Phone != nil {
-		record.Phone = *input.Phone
+	if input.Phone != "" {
+		record.Phone = input.Phone
 	}
 
 	if err := s.repo.Update(ctx, record); err != nil {
@@ -235,11 +235,11 @@ func (s *Service) UpdateUser(ctx context.Context, req UpdateUserRequest) (Profil
 		return Profile{}, err
 	}
 
-	if req.Name != nil {
-		record.Name = *req.Name
+	if req.Name != "" {
+		record.Name = req.Name
 	}
-	if req.Phone != nil {
-		record.Phone = *req.Phone
+	if req.Phone != "" {
+		record.Phone = req.Phone
 	}
 
 	if err := s.repo.Update(ctx, record); err != nil {

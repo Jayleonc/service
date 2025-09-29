@@ -40,6 +40,8 @@ type Router struct {
 func NewRouter(cfg RouterConfig) *Router {
 	gin.SetMode(gin.DebugMode)
 
+	// Use a StructValidator that supports both `binding` and `validate` tags.
+	binding.Validator = validation.NewDualTagValidator()
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		validation.SetDefault(engine)
 	} else {
@@ -50,7 +52,6 @@ func NewRouter(cfg RouterConfig) *Router {
 	r.Use(gin.Logger())
 	r.Use(middleware.InjectLogger(cfg.Logger))
 	r.Use(middleware.Recovery())
-
 	if cfg.Registry != nil {
 		r.Use(middleware.Metrics(cfg.Registry))
 		r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(cfg.Registry, promhttp.HandlerOpts{})))
