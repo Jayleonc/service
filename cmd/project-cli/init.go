@@ -73,9 +73,9 @@ func runInit(root string) error {
 
 	fmt.Println()
 	if dirName, err := projectDirectoryName(root); err == nil {
-		fmt.Printf("💡 专业提示：建议在完成所有步骤后，手动将项目根目录 `%s` 重命名为具体的项目名称（例如: mv %s my_awesome_project）。\n", dirName, dirName)
+		fmt.Printf("💡 提示：建议在完成所有步骤后，手动将项目根目录 `%s` 重命名为具体的项目名称（例如: mv %s my_awesome_project）。\n", dirName, dirName)
 	} else {
-		fmt.Println("💡 专业提示：建议在完成所有步骤后，手动将项目根目录重命名为具体的项目名称（例如: mv service my_awesome_project）。")
+		fmt.Println("💡 提示：建议在完成所有步骤后，手动将项目根目录重命名为具体的项目名称（例如: mv service my_awesome_project）。")
 	}
 
 	fmt.Println()
