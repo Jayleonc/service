@@ -157,6 +157,34 @@ func (r *Repository) ReplaceRolePermissions(ctx context.Context, role *Role, per
 	return r.db.WithContext(ctx).Model(role).Association("Permissions").Replace(permissions)
 }
 
+// UserHasPermission checks whether the user possesses the given permission key.
+func (r *Repository) UserHasPermission(ctx context.Context, userID uuid.UUID, permission string) (bool, error) {
+	resource, action, ok := ParsePermissionKey(permission)
+	if !ok {
+		return false, nil
+	}
+
+	var count int64
+	query := r.db.WithContext(ctx).
+		Table("permissions").
+		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
+		Joins("JOIN user_roles ur ON ur.role_id = rp.role_id").
+		Where("ur.user_id = ?", userID)
+
+	if resource != "" {
+		query = query.Where("LOWER(permissions.resource) = ?", strings.ToLower(resource))
+	}
+	if action != "" {
+		query = query.Where("LOWER(permissions.action) = ?", strings.ToLower(action))
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
 func normalizeStrings(values []string) []string {
 	if len(values) == 0 {
 		return nil

@@ -59,6 +59,50 @@ RBAC 特性展示了如何在结构化范式下构建高度内聚的授权系统
 
 认证与 RBAC 模块共享同一个路由器，彼此之间不会将关注点泄漏到启动器中。
 
+## 权限系统：简单守卫与高级RBAC插件
+
+默认情况下，脚手架仅启用三层守卫：公共路由无需认证、Authenticated 路由要求登录、Admin 路由在中间件中通过角色名(`ADMIN`)完成快速校验。
+此模式无需维护任何权限表，适合原型期或对授权没有强约束的内部工具。
+
+当业务需要细粒度权限管理时，只需启用封装在 `internal/rbac` 中的高级插件。插件会自动完成如下工作：
+
+- 迁移角色、权限、关联表结构，并确保基础角色(`ADMIN`、`USER`)存在；
+- 扫描所有路由声明的 `RequiredPermission` 字符串，自动创建缺失的权限记录；
+- 将全部权限授予 `ADMIN` 角色，并注入可复用的权限中间件；
+- 将 Admin 守卫升级为 `system:admin` 权限校验，避免单纯依赖角色名带来的越权风险。
+
+### 启用高级 RBAC 插件
+
+打开 `internal/app/bootstrap.go`，取消 `Features` 列表末尾的注释即可：
+
+```go
+var Features = []feature.Entry{
+        {Name: "auth", Registrar: auth.Register},
+        {Name: "user", Registrar: user.Register},
+        {Name: "rbac", Registrar: rbac.Register}, // 高级 RBAC 插件
+}
+```
+
+保持插件位于列表末尾，可以确保它在其它业务模块注册完毕后执行权限扫描。
+
+### 为路由声明权限
+
+启用插件后，业务模块只需在路由定义中填写类型安全的权限键即可获得保护。例如用户模块中的管理员接口：
+
+```go
+routes := feature.ModuleRoutes{
+        AuthenticatedRoutes: []feature.RouteDefinition{
+                {
+                        Path:               "delete",
+                        Handler:            h.delete,
+                        RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionDelete),
+                },
+        },
+}
+```
+
+插件会在启动阶段收集这些键值并写入数据库，`/v1/rbac` 下的管理 API 则可用于后续增删角色、分配权限等维护操作。
+
 ## 核心架构决策
 
 ### 主键策略：UUID vs 自增ID

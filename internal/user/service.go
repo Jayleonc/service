@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -22,7 +21,6 @@ import (
 // Service 协调用户相关的业务操作。
 type Service struct {
 	repo        *Repository
-	validator   *validator.Validate
 	authService *auth.Service
 	rbacService *rbac.Service
 }
@@ -88,16 +86,12 @@ type LoginResult struct {
 }
 
 // NewService 创建 Service 实例。
-func NewService(repo *Repository, validate *validator.Validate, authService *auth.Service, rbacService *rbac.Service) *Service {
-	return &Service{repo: repo, validator: validate, authService: authService, rbacService: rbacService}
+func NewService(repo *Repository, authService *auth.Service, rbacService *rbac.Service) *Service {
+	return &Service{repo: repo, authService: authService, rbacService: rbacService}
 }
 
 // Register 持久化新用户。
 func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, error) {
-	if err := s.validator.Struct(input); err != nil {
-		return Profile{}, err
-	}
-
 	roles, err := s.rolesByNames(ctx, []string{constant.RoleUser})
 	if err != nil {
 		return Profile{}, err
@@ -136,10 +130,6 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (Profile, e
 
 // Login 校验凭证并签发新的令牌对。
 func (s *Service) Login(ctx context.Context, input LoginInput) (LoginResult, error) {
-	if err := s.validator.Struct(input); err != nil {
-		return LoginResult{}, err
-	}
-
 	record, err := s.repo.GetByEmail(ctx, strings.ToLower(input.Email))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -176,10 +166,6 @@ func (s *Service) Profile(ctx context.Context, id uuid.UUID) (Profile, error) {
 
 // UpdateProfile 修改用户个人资料。
 func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, input UpdateProfileInput) (Profile, error) {
-	if err := s.validator.Struct(input); err != nil {
-		return Profile{}, err
-	}
-
 	record, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return Profile{}, err
@@ -201,10 +187,6 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, input UpdateP
 
 // CreateUser 管理员创建用户
 func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest) (Profile, error) {
-	if err := s.validator.Struct(req); err != nil {
-		return Profile{}, err
-	}
-
 	targetRoles := req.Roles
 	if len(targetRoles) == 0 {
 		targetRoles = []string{constant.RoleUser}
@@ -248,10 +230,6 @@ func (s *Service) CreateUser(ctx context.Context, req CreateUserRequest) (Profil
 
 // UpdateUser 管理员更新用户
 func (s *Service) UpdateUser(ctx context.Context, req UpdateUserRequest) (Profile, error) {
-	if err := s.validator.Struct(req); err != nil {
-		return Profile{}, err
-	}
-
 	record, err := s.repo.Get(ctx, req.ID)
 	if err != nil {
 		return Profile{}, err
@@ -273,9 +251,6 @@ func (s *Service) UpdateUser(ctx context.Context, req UpdateUserRequest) (Profil
 
 // DeleteUser 管理员删除用户
 func (s *Service) DeleteUser(ctx context.Context, req DeleteUserRequest) error {
-	if err := s.validator.Struct(req); err != nil {
-		return err
-	}
 	return s.repo.Delete(ctx, req.ID)
 }
 
@@ -309,10 +284,6 @@ func (s *Service) ListUsers(ctx context.Context, req ListUsersRequest) (*respons
 
 // AssignRoles 管理员分配角色
 func (s *Service) AssignRoles(ctx context.Context, req AssignRolesRequest) (Profile, error) {
-	if err := s.validator.Struct(req); err != nil {
-		return Profile{}, err
-	}
-
 	record, err := s.repo.Get(ctx, req.ID)
 	if err != nil {
 		return Profile{}, err

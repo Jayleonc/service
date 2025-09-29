@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/Jayleonc/service/internal/feature"
 	"github.com/Jayleonc/service/internal/middleware"
-	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
@@ -29,9 +29,11 @@ type RouterConfig struct {
 
 // Router 封装 Gin 引擎并提供面向功能模块的注册能力。
 type Router struct {
-	engine *gin.Engine
-	api    *gin.RouterGroup
-	guards *feature.RouteGuards
+	engine             *gin.Engine
+	api                *gin.RouterGroup
+	guards             *feature.RouteGuards
+	permissionEnforcer func(string) gin.HandlerFunc
+	collected          map[string]struct{}
 }
 
 // NewRouter 构建基础 Gin 引擎并返回具备模块注册能力的路由器。
@@ -63,9 +65,10 @@ func NewRouter(cfg RouterConfig) *Router {
 	})
 
 	return &Router{
-		engine: r,
-		api:    r.Group("/v1"),
-		guards: cfg.Guards,
+		engine:    r,
+		api:       r.Group("/v1"),
+		guards:    cfg.Guards,
+		collected: make(map[string]struct{}),
 	}
 }
 
@@ -107,7 +110,10 @@ func (r *Router) RegisterModule(pathPrefix string, routes feature.ModuleRoutes) 
 
 			handlers := make([]gin.HandlerFunc, 0, 1)
 			if def.RequiredPermission != "" {
-				handlers = append(handlers, rbac.PermissionMiddleware(def.RequiredPermission))
+				r.collected[def.RequiredPermission] = struct{}{}
+				if r.permissionEnforcer != nil {
+					handlers = append(handlers, r.permissionEnforcer(def.RequiredPermission))
+				}
 			}
 			handlers = append(handlers, def.Handler)
 			group.POST(path, handlers...)
@@ -137,4 +143,25 @@ func collapsePath(path string) string {
 
 	// 移除首尾可能多余的斜杠，并确保最终结果以单个 / 开头
 	return "/" + strings.Trim(path, "/")
+}
+
+// UsePermissionEnforcer 注册权限中间件工厂函数。
+func (r *Router) UsePermissionEnforcer(factory func(string) gin.HandlerFunc) {
+	if r == nil {
+		return
+	}
+	r.permissionEnforcer = factory
+}
+
+// CollectedRoutePermissions 返回注册阶段收集的权限键集合（按字典序排序）。
+func (r *Router) CollectedRoutePermissions() []string {
+	if r == nil || len(r.collected) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(r.collected))
+	for key := range r.collected {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

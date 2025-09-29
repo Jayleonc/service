@@ -32,11 +32,11 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 		AuthenticatedRoutes: []feature.RouteDefinition{
 			{Path: "me/get", Handler: h.me},
 			{Path: "me/update", Handler: h.updateMe},
-			{Path: "create", Handler: h.create, RequiredPermission: "user:create"},
-			{Path: "update", Handler: h.update, RequiredPermission: "user:update"},
-			{Path: "delete", Handler: h.delete, RequiredPermission: "user:delete"},
-			{Path: "list", Handler: h.list, RequiredPermission: "user:list"},
-			{Path: "assign_roles", Handler: h.assignRoles, RequiredPermission: "user:assign_roles"},
+			{Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionCreate)},
+			{Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionUpdate)},
+			{Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionDelete)},
+			{Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionList)},
+			{Path: "assign_roles", Handler: h.assignRoles, RequiredPermission: rbac.PermissionKey(rbac.ResourceUser, rbac.ActionAssignRoles)},
 		},
 	}
 }

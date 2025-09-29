@@ -10,8 +10,8 @@ import (
 )
 
 // Register 以结构化/依赖注入方式初始化用户功能。
-func Register(ctx context.Context, deps feature.Dependencies) error {
-	if err := deps.Require("DB", "Router", "Validator"); err != nil {
+func Register(ctx context.Context, deps *feature.Dependencies) error {
+	if err := deps.Require("DB", "Router"); err != nil {
 		return fmt.Errorf("user feature dependencies: %w", err)
 	}
 
@@ -25,14 +25,13 @@ func Register(ctx context.Context, deps feature.Dependencies) error {
 		return fmt.Errorf("run user migrations: %w", err)
 	}
 
-	rbacService := rbac.DefaultService()
-	if rbacService == nil {
-		return fmt.Errorf("user feature requires the rbac service to be initialised")
+	rbacRepo := rbac.NewRepository(deps.DB)
+	rbacService, err := rbac.EnsureService(ctx, rbacRepo)
+	if err != nil {
+		return fmt.Errorf("initialise rbac service: %w", err)
 	}
 
-	rbac.SetPermissionChecker(repo)
-
-	svc := NewService(repo, deps.Validator, authService, rbacService)
+	svc := NewService(repo, authService, rbacService)
 	handler := NewHandler(svc)
 	deps.Router.RegisterModule("user", handler.GetRoutes())
 

@@ -19,29 +19,36 @@ import (
 // RouteRegistrar 定义功能模块注册 HTTP 路由所需的能力。
 type RouteRegistrar interface {
 	RegisterModule(pathPrefix string, routes ModuleRoutes)
+	UsePermissionEnforcer(func(permission string) gin.HandlerFunc)
+	CollectedRoutePermissions() []string
 }
 
 // Dependencies 描述模块注册阶段可复用的通用基础设施。
 type Dependencies struct {
-	Logger    *slog.Logger
-	DB        *gorm.DB
-	Engine    *gin.Engine
-	Router    RouteRegistrar
-	Auth      *authpkg.Manager
-	Registry  *prometheus.Registry
-	Config    config.App
-	Cache     *redis.Client
-	Validator *validator.Validate
-	Guards    *RouteGuards
+	Logger             *slog.Logger
+	DB                 *gorm.DB
+	Engine             *gin.Engine
+	Router             RouteRegistrar
+	Auth               *authpkg.Manager
+	Registry           *prometheus.Registry
+	Config             config.App
+	Cache              *redis.Client
+	Validator          *validator.Validate
+	Guards             *RouteGuards
+	PermissionEnforcer func(permission string) gin.HandlerFunc
 }
 
 // Require 校验给定的依赖字段是否已经注入。
-func (d Dependencies) Require(names ...string) error {
+func (d *Dependencies) Require(names ...string) error {
 	if len(names) == 0 {
 		return nil
 	}
 
-	value := reflect.ValueOf(d)
+	if d == nil {
+		return fmt.Errorf("dependencies pointer is nil")
+	}
+
+	value := reflect.ValueOf(*d)
 
 	for _, name := range names {
 		field := value.FieldByName(name)
@@ -64,7 +71,7 @@ func (d Dependencies) Require(names ...string) error {
 }
 
 // Registrar 定义功能模块对外暴露的注册函数签名。
-type Registrar func(context.Context, Dependencies) error
+type Registrar func(context.Context, *Dependencies) error
 
 // Entry 关联模块名称与对应的注册函数。
 type Entry struct {

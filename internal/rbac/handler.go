@@ -26,16 +26,16 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 	return feature.ModuleRoutes{
 		AuthenticatedRoutes: []feature.RouteDefinition{
-			{Path: "role/create", Handler: h.createRole, RequiredPermission: "rbac.role:create"},
-			{Path: "role/update", Handler: h.updateRole, RequiredPermission: "rbac.role:update"},
-			{Path: "role/delete", Handler: h.deleteRole, RequiredPermission: "rbac.role:delete"},
-			{Path: "role/list", Handler: h.listRoles, RequiredPermission: "rbac.role:list"},
-			{Path: "role/assign_permissions", Handler: h.assignRolePermissions, RequiredPermission: "rbac.role:assign_permissions"},
-			{Path: "role/get_permissions", Handler: h.getRolePermissions, RequiredPermission: "rbac.role:view_permissions"},
-			{Path: "permission/create", Handler: h.createPermission, RequiredPermission: "rbac.permission:create"},
-			{Path: "permission/update", Handler: h.updatePermission, RequiredPermission: "rbac.permission:update"},
-			{Path: "permission/delete", Handler: h.deletePermission, RequiredPermission: "rbac.permission:delete"},
-			{Path: "permission/list", Handler: h.listPermissions, RequiredPermission: "rbac.permission:list"},
+			{Path: "role/create", Handler: h.createRole, RequiredPermission: PermissionKey(ResourceRBACRole, ActionCreate)},
+			{Path: "role/update", Handler: h.updateRole, RequiredPermission: PermissionKey(ResourceRBACRole, ActionUpdate)},
+			{Path: "role/delete", Handler: h.deleteRole, RequiredPermission: PermissionKey(ResourceRBACRole, ActionDelete)},
+			{Path: "role/list", Handler: h.listRoles, RequiredPermission: PermissionKey(ResourceRBACRole, ActionList)},
+			{Path: "role/assign_permissions", Handler: h.assignRolePermissions, RequiredPermission: PermissionKey(ResourceRBACRole, ActionAssignPermissions)},
+			{Path: "role/get_permissions", Handler: h.getRolePermissions, RequiredPermission: PermissionKey(ResourceRBACRole, ActionViewPermissions)},
+			{Path: "permission/create", Handler: h.createPermission, RequiredPermission: PermissionKey(ResourceRBACPermission, ActionCreate)},
+			{Path: "permission/update", Handler: h.updatePermission, RequiredPermission: PermissionKey(ResourceRBACPermission, ActionUpdate)},
+			{Path: "permission/delete", Handler: h.deletePermission, RequiredPermission: PermissionKey(ResourceRBACPermission, ActionDelete)},
+			{Path: "permission/list", Handler: h.listPermissions, RequiredPermission: PermissionKey(ResourceRBACPermission, ActionList)},
 		},
 	}
 }
