@@ -32,6 +32,9 @@ import (
 "github.com/google/uuid"
 "gorm.io/gorm"
 
+{{- if .EnableRBAC}}
+"github.com/Jayleonc/service/internal/rbac"
+{{- end}}
 "github.com/Jayleonc/service/internal/feature"
 "github.com/Jayleonc/service/pkg/database"
 "github.com/Jayleonc/service/pkg/ginx/paginator"
@@ -80,11 +83,11 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{- if .EnableRBAC}}
-                {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
-                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
-                {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
-                {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
-                {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionCreate)},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionRead)},
+                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionUpdate)},
+                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionDelete)},
+                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionList)},
 {{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
@@ -491,6 +494,9 @@ import (
 "github.com/google/uuid"
 "gorm.io/gorm"
 
+{{- if .EnableRBAC}}
+"github.com/Jayleonc/service/internal/rbac"
+{{- end}}
 "github.com/Jayleonc/service/internal/feature"
 "github.com/Jayleonc/service/pkg/ginx/request"
 "github.com/Jayleonc/service/pkg/ginx/response"
@@ -539,11 +545,11 @@ func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
 {{- if .EnableRBAC}}
-                {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
-                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
-                {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
-                {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
-                {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
+                {Path: "create", Handler: h.create, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionCreate)},
+                {Path: "get_by_id", Handler: h.getByID, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionRead)},
+                {Path: "update", Handler: h.update, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionUpdate)},
+                {Path: "delete", Handler: h.delete, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionDelete)},
+                {Path: "list", Handler: h.list, RequiredPermission: rbac.PermissionKey("{{.FeatureName}}", rbac.ActionList)},
 {{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
