@@ -681,19 +681,19 @@ return &Handler{}
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
-{{if .EnableRBAC}}
+{{- if .EnableRBAC}}
                 {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
                 {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
                 {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
                 {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
                 {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
-{{else}}
+{{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
                 {Path: "update", Handler: h.update},
                 {Path: "delete", Handler: h.delete},
                 {Path: "list", Handler: h.list},
-{{end}}
+{{- end}}
 },
 }
 }
@@ -1131,19 +1131,19 @@ type ListQuery struct {
 func (h *Handler) GetRoutes() feature.ModuleRoutes {
 return feature.ModuleRoutes{
 AuthenticatedRoutes: []feature.RouteDefinition{
-{{if .EnableRBAC}}
+{{- if .EnableRBAC}}
                 {Path: "create", Handler: h.create, RequiredPermission: "{{.PermissionPrefix}}create"},
                 {Path: "get_by_id", Handler: h.getByID, RequiredPermission: "{{.PermissionPrefix}}read"},
                 {Path: "update", Handler: h.update, RequiredPermission: "{{.PermissionPrefix}}update"},
                 {Path: "delete", Handler: h.delete, RequiredPermission: "{{.PermissionPrefix}}delete"},
                 {Path: "list", Handler: h.list, RequiredPermission: "{{.PermissionPrefix}}list"},
-{{else}}
+{{- else}}
                 {Path: "create", Handler: h.create},
                 {Path: "get_by_id", Handler: h.getByID},
                 {Path: "update", Handler: h.update},
                 {Path: "delete", Handler: h.delete},
                 {Path: "list", Handler: h.list},
-{{end}}
+{{- end}}
 },
 }
 }
