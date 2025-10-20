@@ -14,7 +14,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/internal/middleware"
+	sharedmiddleware "github.com/Jayleonc/service/internal/middleware"
+	servermiddleware "github.com/Jayleonc/service/internal/server/middleware"
 	"github.com/Jayleonc/service/pkg/validation"
 )
 
@@ -38,8 +39,6 @@ type Router struct {
 
 // NewRouter 构建基础 Gin 引擎并返回具备模块注册能力的路由器。
 func NewRouter(cfg RouterConfig) *Router {
-	gin.SetMode(gin.DebugMode)
-
 	// Use a StructValidator that supports both `binding` and `validate` tags.
 	binding.Validator = validation.NewDualTagValidator()
 	if engine, ok := binding.Validator.Engine().(*validator.Validate); ok {
@@ -49,11 +48,11 @@ func NewRouter(cfg RouterConfig) *Router {
 	}
 
 	r := gin.New()
-	r.Use(gin.Logger())
-	r.Use(middleware.InjectLogger(cfg.Logger))
-	r.Use(middleware.Recovery())
+	r.Use(servermiddleware.RequestID(cfg.Logger))
+	r.Use(servermiddleware.AccessLogger())
+	r.Use(servermiddleware.Recovery())
 	if cfg.Registry != nil {
-		r.Use(middleware.Metrics(cfg.Registry))
+		r.Use(sharedmiddleware.Metrics(cfg.Registry))
 		r.GET("/metrics", gin.WrapH(promhttp.HandlerFor(cfg.Registry, promhttp.HandlerOpts{})))
 	}
 
