@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 
-import { login as apiLogin, fetchProfile } from '@/api/auth';
+import { login as apiLogin, register as apiRegister, fetchProfile } from '@/api/auth';
 import { setAuthToken } from '@/api/client';
 
 const ACCESS_TOKEN_KEY = 'service_access_token';
@@ -49,6 +49,11 @@ export const useAuthStore = defineStore('auth', () => {
     return data.user;
   };
 
+  const register = async (userData) => {
+    const data = await apiRegister(userData);
+    return data;
+  };
+
   const loadProfile = async () => {
     if (!token.value) {
       return;
@@ -74,6 +79,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     login,
+    register,
     logout,
     loadProfile,
     setSession,
