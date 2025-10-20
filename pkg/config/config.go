@@ -12,14 +12,16 @@ import (
 
 // App 聚合了服务运行所需的全部配置项。
 type App struct {
+	// Mode 控制应用运行模式（dev 或 prod）。
+	Mode string `mapstructure:"mode"`
 	// Server 控制 HTTP 服务监听与超时配置。
 	Server ServerConfig `mapstructure:"server"`
 	// Database 描述数据库驱动、连接信息与附加参数。
 	Database DatabaseConfig `mapstructure:"database"`
 	// Auth 定义认证系统的签发者、受众和令牌生命周期。
 	Auth AuthConfig `mapstructure:"auth"`
-	// Log 控制日志级别与输出格式。
-	Log LogConfig `mapstructure:"log"`
+	// Logger 控制日志级别、格式以及输出目标。
+	Logger LoggerConfig `mapstructure:"logger"`
 	// Telemetry 控制链路追踪导出行为。
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
 	// Redis 描述缓存服务的连接参数。
@@ -72,12 +74,14 @@ type AuthConfig struct {
 	RefreshTTL time.Duration `mapstructure:"refresh_ttl"`
 }
 
-// LogConfig 控制结构化日志的输出方式。
-type LogConfig struct {
-	// Level 指定日志级别。
-	Level string `mapstructure:"level"`
-	// Pretty 指定是否使用更易读的文本格式输出。
-	Pretty bool `mapstructure:"pretty"`
+// LoggerConfig 控制结构化日志的输出方式。
+type LoggerConfig struct {
+	// Level 指定日志级别，可选；若为空将根据 Mode 自动设置。
+	Level *string `mapstructure:"level"`
+	// Pretty 指定是否使用文本格式输出，可选；若为空将根据 Mode 自动设置。
+	Pretty *bool `mapstructure:"pretty"`
+	// Directory 指定启用文件日志的目录，可选。
+	Directory string `mapstructure:"directory"`
 }
 
 // TelemetryConfig 描述链路追踪导出配置。
@@ -111,6 +115,7 @@ var (
 // Load 从环境变量与可选的 CLI 参数中读取配置。
 func Load(_ context.Context, _ []string) (App, error) {
 	v := viper.New()
+	v.SetDefault("mode", "dev")
 	v.SetDefault("server.host", "0.0.0.0")
 	v.SetDefault("server.port", 3000)
 	v.SetDefault("server.read_timeout", "5s")
@@ -130,8 +135,7 @@ func Load(_ context.Context, _ []string) (App, error) {
 	v.SetDefault("auth.access_ttl", "15m")
 	v.SetDefault("auth.refresh_ttl", "720h")
 
-	v.SetDefault("log.level", "info")
-	v.SetDefault("log.pretty", false)
+	v.SetDefault("logger.directory", "")
 
 	v.SetDefault("telemetry.service_name", "auth-service")
 	v.SetDefault("telemetry.enabled", false)

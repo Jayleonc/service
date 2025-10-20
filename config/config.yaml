@@ -1,3 +1,5 @@
+mode: dev
+
 server:
   host: 0.0.0.0
   port: 3000
@@ -22,9 +24,10 @@ auth:
   access_ttl: 15m
   refresh_ttl: 720h
 
-log:
+logger:
   level: info
   pretty: false
+  directory: ""
 
 telemetry:
   service_name: auth-service

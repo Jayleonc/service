@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // Config 表示用于 GORM 的数据库连接配置。
@@ -22,6 +23,7 @@ type Config struct {
 	Database string
 	SSLMode  string
 	Params   map[string]string
+	Logger   gormlogger.Interface
 }
 
 var (
@@ -36,13 +38,18 @@ func New(cfg Config) (*gorm.DB, error) {
 		driver = "postgres"
 	}
 
+	gormCfg := &gorm.Config{}
+	if cfg.Logger != nil {
+		gormCfg.Logger = cfg.Logger
+	}
+
 	switch strings.ToLower(driver) {
 	case "postgres", "postgresql":
 		dsn := buildPostgresDSN(cfg)
-		return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		return gorm.Open(postgres.Open(dsn), gormCfg)
 	case "mysql":
 		dsn := buildMySQLDSN(cfg)
-		return gorm.Open(mysql.Open(dsn), &gorm.Config{})
+		return gorm.Open(mysql.Open(dsn), gormCfg)
 	default:
 		return nil, fmt.Errorf("database: unsupported driver %q", cfg.Driver)
 	}

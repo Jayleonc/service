@@ -4,16 +4,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Jayleonc/service/internal/database"
 	"github.com/Jayleonc/service/internal/feature"
+	"github.com/Jayleonc/service/internal/logger"
 	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/auth"
 	"github.com/Jayleonc/service/pkg/cache"
 	"github.com/Jayleonc/service/pkg/config"
-	"github.com/Jayleonc/service/pkg/database"
-	"github.com/Jayleonc/service/pkg/observe/logger"
+	databasepkg "github.com/Jayleonc/service/pkg/database"
 	"github.com/Jayleonc/service/pkg/observe/metrics"
 	"github.com/Jayleonc/service/pkg/observe/telemetry"
 	"github.com/Jayleonc/service/pkg/validation"
@@ -29,11 +31,28 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
+	// ======= 配置运行模式 =======
+	switch strings.ToLower(strings.TrimSpace(cfg.Mode)) {
+	case "prod", "production", "pro":
+		gin.SetMode(gin.ReleaseMode)
+	default:
+		gin.SetMode(gin.DebugMode)
+	}
+
 	// ======= 初始化日志 =======
-	log := logger.Init(logger.Config{Level: cfg.Log.Level, Pretty: cfg.Log.Pretty})
+	log, err := logger.Init(logger.Config{
+		Mode:      cfg.Mode,
+		Level:     cfg.Logger.Level,
+		Pretty:    cfg.Logger.Pretty,
+		Directory: cfg.Logger.Directory,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("initialise logger: %w", err)
+	}
 
 	// ======= 初始化数据库 =======
-	db, err := database.Init(database.Config{
+	gormLogger := database.NewLogger(logger.Level())
+	db, err := databasepkg.Init(databasepkg.Config{
 		Driver:   cfg.Database.Driver,
 		Host:     cfg.Database.Host,
 		Port:     cfg.Database.Port,
@@ -42,6 +61,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 		Database: cfg.Database.Name,
 		SSLMode:  cfg.Database.SSLMode,
 		Params:   cfg.Database.Params,
+		Logger:   gormLogger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("connect database: %w", err)
