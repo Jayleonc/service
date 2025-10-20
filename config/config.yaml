@@ -27,7 +27,7 @@ auth:
 logger:
   level: info
   pretty: false
-  directory: ""
+  directory: "./logs"
 
 telemetry:
   service_name: auth-service

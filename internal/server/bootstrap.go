@@ -6,11 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/gin-gonic/gin"
 
-	"github.com/Jayleonc/service/internal/database"
 	"github.com/Jayleonc/service/internal/feature"
-	"github.com/Jayleonc/service/internal/logger"
 	"github.com/Jayleonc/service/internal/rbac"
 	"github.com/Jayleonc/service/pkg/auth"
 	"github.com/Jayleonc/service/pkg/cache"
@@ -51,7 +50,7 @@ func Bootstrap(features []feature.Entry) (*App, error) {
 	}
 
 	// ======= 初始化数据库 =======
-	gormLogger := database.NewLogger(logger.Level())
+	gormLogger := databasepkg.NewLogger(logger.Level())
 	db, err := databasepkg.Init(databasepkg.Config{
 		Driver:   cfg.Database.Driver,
 		Host:     cfg.Database.Host,

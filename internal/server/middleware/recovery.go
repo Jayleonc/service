@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"runtime/debug"
 
+	applogger "github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/gin-gonic/gin"
-
-	applogger "github.com/Jayleonc/service/internal/logger"
 )
 
 // Recovery 捕获 panic 并记录详细错误信息。

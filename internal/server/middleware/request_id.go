@@ -3,9 +3,8 @@ package middleware
 import (
 	"log/slog"
 
+	applogger "github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/gin-gonic/gin"
-
-	applogger "github.com/Jayleonc/service/internal/logger"
 )
 
 // RequestID 为每个请求生成唯一 ID 并注入带有该 ID 的日志器。

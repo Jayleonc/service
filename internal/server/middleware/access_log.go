@@ -4,9 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	applogger "github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/gin-gonic/gin"
-
-	applogger "github.com/Jayleonc/service/internal/logger"
 )
 
 // AccessLogger 输出结构化访问日志。
@@ -28,8 +27,8 @@ func AccessLogger() gin.HandlerFunc {
 			"status", status,
 			"duration", duration,
 			"ip", c.ClientIP(),
-			"bytes_in", c.Request.ContentLength,
-			"bytes_out", c.Writer.Size(),
+			//"bytes_in", c.Request.ContentLength,
+			//"bytes_out", c.Writer.Size(),
 		}
 		if err := c.Errors.Last(); err != nil {
 			args = append(args, "error", err.Error())

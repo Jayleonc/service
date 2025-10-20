@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -170,6 +171,8 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, input UpdateP
 	if err != nil {
 		return Profile{}, err
 	}
+
+	logger.Info(ctx, "updating user profile in service", logger.String("id", id.String()))
 
 	if input.Name != "" {
 		record.Name = input.Name

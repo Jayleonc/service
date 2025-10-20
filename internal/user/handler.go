@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Jayleonc/service/internal/rbac"
+	"github.com/Jayleonc/service/pkg/observe/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -109,7 +110,9 @@ func (h *Handler) updateMe(c *gin.Context) {
 		return
 	}
 
-	profile, err := h.svc.UpdateProfile(c.Request.Context(), session.UserID, req)
+	logger.Info(c, "updateMe", "userId", session.UserID)
+
+	profile, err := h.svc.UpdateProfile(c, session.UserID, req)
 	if err != nil {
 		response.Error(c, http.StatusBadRequest, ErrUpdateProfileFailed)
 		return

@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	applogger "github.com/Jayleonc/service/internal/logger"
+	applogger "github.com/Jayleonc/service/pkg/observe/logger"
 )
 
 const (
@@ -21,6 +21,7 @@ type Logger struct {
 	level                     slog.Level
 	ignoreRecordNotFoundError bool
 	slowThreshold             time.Duration
+	printSQL                  bool
 }
 
 // NewLogger 创建一个 GORM 日志器。
@@ -29,6 +30,7 @@ func NewLogger(level slog.Level) gormlogger.Interface {
 		level:                     level,
 		ignoreRecordNotFoundError: true,
 		slowThreshold:             slowQueryThreshold,
+		printSQL:                  false,
 	}
 }
 
@@ -50,6 +52,8 @@ func (l *Logger) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
 	if clone.level < l.level {
 		clone.level = l.level
 	}
+	// 当 GORM 收到 Info 级别（例如调用 db.Debug()）时，仅在该会话内开启 SQL 正常执行日志
+	clone.printSQL = level >= gormlogger.Info
 	return &clone
 }
 
@@ -89,6 +93,7 @@ func (l *Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, 
 		"sql", sql,
 		"rows", rows,
 		"duration", elapsed,
+		"gorm_sql", true,
 	}
 
 	switch {
@@ -101,8 +106,8 @@ func (l *Logger) Trace(ctx context.Context, begin time.Time, fc func() (string, 
 			applogger.Warn(ctx, "slow query", args...)
 		}
 	default:
-		if l.level <= slog.LevelDebug {
-			applogger.Debug(ctx, "sql executed", args...)
+		if l.printSQL {
+			applogger.Info(ctx, "sql executed", args...)
 		}
 	}
 }
